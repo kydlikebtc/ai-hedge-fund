@@ -14,7 +14,7 @@ class Backtester:
         self.start_date = start_date
         self.end_date = end_date
         self.initial_capital = initial_capital
-        self.portfolio = {"cash": initial_capital, "stock": 0}
+        self.portfolio = {"cash": initial_capital, "crypto": 0}
         self.portfolio_values = []
 
     def parse_action(self, agent_output):
@@ -31,21 +31,21 @@ class Backtester:
         if action == "buy" and quantity > 0:
             cost = quantity * current_price
             if cost <= self.portfolio["cash"]:
-                self.portfolio["stock"] += quantity
+                self.portfolio["crypto"] += quantity
                 self.portfolio["cash"] -= cost
                 return quantity
             else:
                 max_quantity = self.portfolio["cash"] // current_price
                 if max_quantity > 0:
-                    self.portfolio["stock"] += max_quantity
+                    self.portfolio["crypto"] += max_quantity
                     self.portfolio["cash"] -= max_quantity * current_price
                     return max_quantity
                 return 0
         elif action == "sell" and quantity > 0:
-            quantity = min(quantity, self.portfolio["stock"])
+            quantity = min(quantity, self.portfolio["crypto"])
             if quantity > 0:
                 self.portfolio["cash"] += quantity * current_price
-                self.portfolio["stock"] -= quantity
+                self.portfolio["crypto"] -= quantity
                 return quantity
             return 0
         return 0
@@ -53,9 +53,9 @@ class Backtester:
     def run_backtest(self):
         dates = pd.date_range(self.start_date, self.end_date, freq="D")
 
-        print("\nStarting backtest...")
+        print("\nStarting cryptocurrency backtest...")
         print(
-            f"{'Date':<12} {'Ticker':<6} {'Action':<6} {'Quantity':>8} {'Price':>8} {'Cash':>12} {'Stock':>8} {'Total Value':>12}"
+            f"{'Date':<12} {'Ticker':<6} {'Action':<6} {'Quantity':>8} {'Price':>8} {'Cash':>12} {'Crypto':>8} {'Total Value':>12}"
         )
         print("-" * 70)
 
@@ -77,13 +77,13 @@ class Backtester:
             executed_quantity = self.execute_trade(action, quantity, current_price)
 
             total_value = (
-                self.portfolio["cash"] + self.portfolio["stock"] * current_price
+                self.portfolio["cash"] + self.portfolio["crypto"] * current_price
             )
             self.portfolio["portfolio_value"] = total_value
 
             print(
                 f"{current_date.strftime('%Y-%m-%d'):<12} {self.ticker:<6} {action:<6} {executed_quantity:>8} {current_price:>8.2f} "
-                f"{self.portfolio['cash']:>12.2f} {self.portfolio['stock']:>8} {total_value:>12.2f}"
+                f"{self.portfolio['cash']:>12.2f} {self.portfolio['crypto']:>8} {total_value:>12.2f}"
             )
 
             self.portfolio_values.append(
@@ -123,8 +123,8 @@ class Backtester:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Run backtesting simulation")
-    parser.add_argument("--ticker", type=str, help="Stock ticker symbol (e.g., AAPL)")
+    parser = argparse.ArgumentParser(description="Run cryptocurrency backtesting simulation")
+    parser.add_argument("--ticker", type=str, help="Cryptocurrency ticker symbol (e.g., BTC)")
     parser.add_argument(
         "--end_date",
         type=str,
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         "--initial_capital",
         type=float,
         default=100000,
-        help="Initial capital amount (default: 100000)",
+        help="Initial capital amount in USD (default: 100000)",
     )
 
     args = parser.parse_args()

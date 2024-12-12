@@ -1,5 +1,5 @@
 """
-Specialized agent implementations that inherit from BaseAgent.
+Specialized cryptocurrency trading agent implementations that inherit from BaseAgent.
 """
 
 from typing import Dict, Any
@@ -8,17 +8,18 @@ from .base import BaseAgent
 from ..providers import BaseProvider
 
 class SentimentAgent(BaseAgent):
-    """Analyzes market sentiment using configurable AI providers."""
+    """Analyzes cryptocurrency market sentiment using configurable AI providers, specializing in BTC and major altcoins."""
 
     def analyze_sentiment(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Analyze sentiment from market data and insider trades.
+        Analyze cryptocurrency market sentiment from market data and on-chain metrics.
 
         Args:
-            state: Current workflow state containing market data
+            state: Current workflow state containing cryptocurrency market data,
+                  including BTC price, volume, and network metrics
 
         Returns:
-            Updated state with sentiment analysis
+            Updated state with cryptocurrency sentiment analysis
         """
         system_prompt = """
         You are a cryptocurrency market sentiment analyst.
@@ -60,17 +61,18 @@ class SentimentAgent(BaseAgent):
             return state
 
 class RiskManagementAgent(BaseAgent):
-    """Evaluates portfolio risk using configurable AI providers."""
+    """Evaluates cryptocurrency portfolio risk using configurable AI providers, with emphasis on BTC market dynamics."""
 
     def evaluate_risk(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Evaluate trading risk based on market conditions.
+        Evaluate cryptocurrency trading risk based on market conditions.
 
         Args:
-            state: Current workflow state with market data and sentiment
+            state: Current workflow state with cryptocurrency market data and sentiment,
+                  including BTC volatility and market metrics
 
         Returns:
-            Updated state with risk assessment
+            Updated state with cryptocurrency risk assessment
         """
         system_prompt = """
         You are a cryptocurrency risk management specialist.
@@ -114,17 +116,18 @@ class RiskManagementAgent(BaseAgent):
             return state
 
 class PortfolioManagementAgent(BaseAgent):
-    """Makes final trading decisions using configurable AI providers."""
+    """Makes final cryptocurrency trading decisions using configurable AI providers, optimized for BTC-focused strategies."""
 
     def make_decision(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Make final trading decision based on all signals.
+        Make final cryptocurrency trading decision based on all signals.
 
         Args:
-            state: Current workflow state with all analyses
+            state: Current workflow state with all cryptocurrency analyses,
+                  including BTC market data, sentiment, and risk metrics
 
         Returns:
-            Updated state with trading decision
+            Updated state with cryptocurrency trading decision
         """
         system_prompt = """
         You are a cryptocurrency portfolio manager making final trading decisions.
