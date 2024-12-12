@@ -227,11 +227,11 @@ def fundamentals_agent(state: AgentState):
 
     # 1. Profitability Analysis
     profitability_score = 0
-    if metrics["return_on_equity"] > 0.15:  # Strong ROE above 15%
+    if metrics["market_dominance"] > 0.15:  # Strong market dominance above 15%
         profitability_score += 1
-    if metrics["net_margin"] > 0.20:  # Healthy profit margins
+    if metrics["volume_24h"] > metrics["avg_volume_7d"]:  # Strong trading volume
         profitability_score += 1
-    if metrics["operating_margin"] > 0.15:  # Strong operating efficiency
+    if metrics["active_addresses"] > metrics["avg_active_addresses_7d"]:  # Growing network usage
         profitability_score += 1
 
     signals.append(
@@ -243,7 +243,7 @@ def fundamentals_agent(state: AgentState):
     )
     reasoning["Profitability"] = {
         "signal": signals[0],
-        "details": f"ROE: {metrics['return_on_equity']:.2%}, Net Margin: {metrics['net_margin']:.2%}, Op Margin: {metrics['operating_margin']:.2%}",
+        "details": f"Market Dominance: {metrics['market_dominance']:.2%}, Trading Volume: {metrics['volume_24h']:,.0f}, Active Addresses: {metrics['active_addresses']:,}",
     }
 
     # 2. Growth Analysis
@@ -269,13 +269,15 @@ def fundamentals_agent(state: AgentState):
 
     # 3. Financial Health
     health_score = 0
-    if metrics["current_ratio"] > 1.5:  # Strong liquidity
+    # Get historical hash rate data
+    historical_hash_rate = metrics.get("historical_hash_rate", [])
+    previous_hash_rate = historical_hash_rate[-2] if len(historical_hash_rate) > 1 else metrics["network_hash_rate"]
+
+    if metrics["liquidity_24h"] > 1000000:  # Strong liquidity (>$1M daily)
         health_score += 1
-    if metrics["debt_to_equity"] < 0.5:  # Conservative debt levels
+    if metrics["network_hash_rate"] > previous_hash_rate:  # Growing network strength
         health_score += 1
-    if (
-        metrics["free_cash_flow_per_share"] > metrics["earnings_per_share"] * 0.8
-    ):  # Strong FCF conversion
+    if metrics["miner_revenue"] > metrics["avg_miner_revenue_7d"]:  # Healthy mining economics
         health_score += 1
 
     signals.append(
@@ -287,32 +289,30 @@ def fundamentals_agent(state: AgentState):
     )
     reasoning["Financial_Health"] = {
         "signal": signals[2],
-        "details": f"Current Ratio: {metrics['current_ratio']:.2f}, D/E: {metrics['debt_to_equity']:.2f}",
+        "details": f"Hash Rate Change: {(metrics['network_hash_rate'] / previous_hash_rate - 1):.2%}, Mining Difficulty: {metrics['mining_difficulty']:,}",
     }
 
-    # 4. Valuation
-    pe_ratio = metrics["price_to_earnings_ratio"]
-    pb_ratio = metrics["price_to_book_ratio"]
-    ps_ratio = metrics["price_to_sales_ratio"]
+    # 4. Network Analysis
+    network_score = 0
 
-    valuation_score = 0
-    if pe_ratio < 25:  # Reasonable P/E ratio
-        valuation_score += 1
-    if pb_ratio < 3:  # Reasonable P/B ratio
-        valuation_score += 1
-    if ps_ratio < 5:  # Reasonable P/S ratio
-        valuation_score += 1
+    # Check network metrics
+    if metrics["transaction_count_24h"] > metrics["avg_transaction_count_7d"]:
+        network_score += 1
+    if metrics["avg_transaction_value"] > metrics["avg_transaction_value_7d"]:
+        network_score += 1
+    if metrics["mining_difficulty"] > metrics["avg_mining_difficulty_7d"]:
+        network_score += 1
 
     signals.append(
-        "bullish"
-        if valuation_score >= 2
-        else "bearish"
-        if valuation_score == 0
-        else "neutral"
+        "Strong Buy"
+        if network_score >= 2
+        else "Buy"
+        if network_score == 1
+        else "Neutral"
     )
-    reasoning["Valuation"] = {
+    reasoning["Network_Health"] = {
         "signal": signals[3],
-        "details": f"P/E: {pe_ratio:.2f}, P/B: {pb_ratio:.2f}, P/S: {ps_ratio:.2f}",
+        "details": f"Transactions: {metrics['transaction_count_24h']:,}, Avg Value: ${metrics['avg_transaction_value']:,.2f}, Difficulty: {metrics['mining_difficulty']:,}",
     }
 
     # Determine overall signal
@@ -541,7 +541,7 @@ app = workflow.compile()
 # Add this at the bottom of the file
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the hedge fund trading system")
-    parser.add_argument("--ticker", type=str, required=True, help="Stock ticker symbol")
+    parser.add_argument("--ticker", type=str, required=True, help="Cryptocurrency symbol")
     parser.add_argument(
         "--start-date",
         type=str,
@@ -572,7 +572,7 @@ if __name__ == "__main__":
     # Sample portfolio - you might want to make this configurable too
     portfolio = {
         "cash": 100000.0,  # $100,000 initial cash
-        "stock": 0,  # No initial stock position
+        "crypto": 0,  # No initial crypto position
     }
 
     result = run_hedge_fund(
