@@ -53,7 +53,7 @@ class SentimentAgent(BaseAgent):
             }
             return state
 
-class RiskManagementAgent(BaseAgent):
+class RiskAgent(BaseAgent):
     """Evaluates portfolio risk using configurable AI providers."""
 
     def evaluate_risk(self, state: Dict[str, Any]) -> Dict[str, Any]:
@@ -100,7 +100,7 @@ class RiskManagementAgent(BaseAgent):
             }
             return state
 
-class PortfolioManagementAgent(BaseAgent):
+class PortfolioAgent(BaseAgent):
     """Makes final trading decisions using configurable AI providers."""
 
     def make_decision(self, state: Dict[str, Any]) -> Dict[str, Any]:
