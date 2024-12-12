@@ -107,13 +107,25 @@ def validate_workflow_result(result: Dict[str, Any]) -> bool:
 def mock_market_data():
     """Fixture for market data."""
     return {
-        "ticker": "AAPL",
-        "price": 150.0,
-        "volume": 1000000,
-        "insider_trades": [
-            {"type": "buy", "shares": 1000, "price": 148.0},
-            {"type": "sell", "shares": 500, "price": 152.0}
-        ]
+        "ticker": "BTC",
+        "price": 42000.0,
+        "volume": 1000000000,  # $1B daily volume
+        "market_dominance": 0.45,  # 45% market dominance
+        "network_hash_rate": 512e18,  # 512 EH/s
+        "mining_difficulty": 72e12,  # 72T
+        "active_addresses": 1000000,  # 1M active addresses
+        "avg_transaction_value": 25000.0,  # $25K average transaction
+        "transaction_count_24h": 350000,  # 350K daily transactions
+        # Historical averages for comparison
+        "avg_volume_7d": 950000000,
+        "avg_active_addresses_7d": 950000,
+        "historical_hash_rate": [500e18, 505e18, 510e18, 512e18],  # Last 4 periods
+        "avg_transaction_count_7d": 340000,
+        "avg_transaction_value_7d": 24000.0,
+        "avg_mining_difficulty_7d": 71e12,
+        "avg_miner_revenue_7d": 12500000,  # $12.5M daily average
+        "miner_revenue": 13000000,  # $13M current daily revenue
+        "liquidity_24h": 5000000  # $5M daily liquidity
     }
 
 @pytest.mark.parametrize("provider_config", [
@@ -217,17 +229,17 @@ def test_workflow_state_transitions(provider_config, mock_openai_client, mock_an
     sentiment_response = {
         "sentiment_score": 0.8,
         "confidence": 0.8,
-        "reasoning": "Strong buy signals detected"
+        "reasoning": "Strong buy signals based on increasing network activity and positive market sentiment for BTC"
     }
     risk_response = {
         "risk_level": "moderate",
-        "position_limit": 1000,
-        "reasoning": "Moderate risk based on market conditions"
+        "position_limit": 0.5,  # 0.5 BTC position limit
+        "reasoning": "Moderate risk based on network metrics and market volatility"
     }
     trading_response = {
         "action": "buy",
-        "quantity": 500,
-        "reasoning": "Strong buy recommendation based on signals"
+        "quantity": 0.25,  # 0.25 BTC
+        "reasoning": "Strong buy recommendation based on network health and market dominance signals"
     }
 
     if ProviderClass == OpenAIProvider:
@@ -248,7 +260,7 @@ def test_workflow_state_transitions(provider_config, mock_openai_client, mock_an
 
     # Initialize workflow state with minimal data
     initial_state = WorkflowState(
-        market_data={"ticker": "AAPL", "price": 150.0},
+        market_data={"ticker": "BTC", "price": 42000.0},
         sentiment_analysis=None,
         risk_assessment=None,
         trading_decision=None
@@ -267,8 +279,8 @@ def test_workflow_state_transitions(provider_config, mock_openai_client, mock_an
 
     # Verify risk assessment
     assert result["risk_assessment"]["risk_level"] == "moderate"
-    assert result["risk_assessment"]["position_limit"] == 1000
+    assert result["risk_assessment"]["position_limit"] == 0.5
 
     # Verify trading decision
     assert result["trading_decision"]["action"] == "buy"
-    assert result["trading_decision"]["quantity"] == 500
+    assert result["trading_decision"]["quantity"] == 0.25

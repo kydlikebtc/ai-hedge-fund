@@ -1,6 +1,6 @@
 # AI Hedge Fund 🤖📈
 
-[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
 [![Poetry](https://img.shields.io/badge/poetry-package%20manager-blue)](https://python-poetry.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -39,18 +39,35 @@ An AI-powered hedge fund that uses multiple agents to make trading decisions. Th
 ## 🚀 Quick Start
 
 ```bash
-# Install and setup
+# Install Poetry and clone repository
 curl -sSL https://install.python-poetry.org | python3 -
 git clone https://github.com/kydlikebtc/ai-hedge-fund.git
 cd ai-hedge-fund
 poetry install
 
-# Configure environment
+# Configure API keys (required)
 cp .env.example .env
-# Add your API keys to .env file
+# Edit .env and add your API keys (see API Keys Setup section)
+# Verify setup with:
+poetry run python -c "
+import os
+keys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'COINMARKETCAP_API_KEY']
+for key in keys:
+    print(f'{key}:', '✓' if os.getenv(key) else '✗')
+"
 
-# Run BTC analysis
+# Run BTC analysis with reasoning
 poetry run python src/agents.py --ticker BTC --show-reasoning
+
+# Example output:
+# Market Data Agent: BTC price at $42,000, volume increasing
+# Sentiment Agent: Strong positive sentiment, network activity up
+# Technical Agent: RSI 65, not overbought, healthy network metrics
+# Risk Manager: Moderate risk, suggesting 0.5 BTC position
+# Portfolio Manager: Executing BUY order for 0.25 BTC
+
+# Run BTC backtesting simulation
+poetry run python src/backtester.py --ticker BTC --start-date 2024-01-01 --end-date 2024-03-01
 ```
 
 ## ⚠️ Disclaimer
@@ -90,11 +107,9 @@ By using this software, you agree to use it solely for learning purposes.
 
 ## 🔧 Requirements
 
-- Python 3.8 or higher (recommended: Python 3.12)
+- Python 3.9 or higher (recommended: Python 3.12)
 - Poetry package manager
-- API Keys:
-  - OpenAI API key (for AI analysis)
-  - CoinMarketCap API key (for crypto data)
+- Required API keys (see [API Keys Setup](#api-keys-setup) section)
 
 ## 📥 Installation
 
@@ -116,34 +131,55 @@ cd ai-hedge-fund
 poetry install
 ```
 
-### Configuring API Keys
+### API Keys Setup
 
-1. Create your environment file:
+The system requires the following API keys:
+
+1. **OpenAI API Key** (Required)
+   - Used for: Primary AI analysis and decision making
+   - Get your key: [OpenAI Platform](https://platform.openai.com/)
+   - Pricing: Pay-as-you-go, free credits for new accounts
+   - Environment variable: `OPENAI_API_KEY`
+
+2. **Anthropic API Key** (Required)
+   - Used for: Advanced market analysis and risk assessment
+   - Get your key: [Anthropic Console](https://console.anthropic.com/)
+   - Pricing: Pay-as-you-go
+   - Environment variable: `ANTHROPIC_API_KEY`
+
+3. **CoinMarketCap API Key** (Required)
+   - Used for: Cryptocurrency market data and pricing
+   - Get your key: [CoinMarketCap](https://coinmarketcap.com/api/)
+   - Pricing: Free tier available
+   - Environment variable: `COINMARKETCAP_API_KEY`
+
+Setup steps:
+
+1. Copy the example environment file:
 ```bash
 cp .env.example .env
 ```
 
-2. Set up your API keys:
+2. Add your API keys to the `.env` file:
 ```bash
-# Get your API key from https://platform.openai.com/
-export OPENAI_API_KEY='your-api-key-here'
-
-# Get your API key from https://coinmarketcap.com/api/
-export COINMARKETCAP_API_KEY='your-api-key-here'
+# Edit .env file with your API keys
+OPENAI_API_KEY=your_openai_key_here
+ANTHROPIC_API_KEY=your_anthropic_key_here
+COINMARKETCAP_API_KEY=your_coinmarketcap_key_here
 ```
 
-### Verification Steps
-
-1. Verify Poetry installation:
+3. Verify your API keys:
 ```bash
-poetry --version
+# Run the verification script
+poetry run python -c "
+import os
+keys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'COINMARKETCAP_API_KEY']
+for key in keys:
+    print(f'{key}:', '✓' if os.getenv(key) else '✗')
+"
 ```
 
-2. Verify environment setup:
-```bash
-poetry run python -c "import os; print('OpenAI API Key:', bool(os.getenv('OPENAI_API_KEY')))"
-poetry run python -c "import os; print('CoinMarketCap API Key:', bool(os.getenv('COINMARKETCAP_API_KEY')))"
-```
+If any key shows '✗', ensure it's properly set in your `.env` file.
 
 ### Troubleshooting
 
