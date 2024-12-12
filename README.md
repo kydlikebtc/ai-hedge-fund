@@ -260,7 +260,7 @@ ai-hedge-fund/
 │   ├── test_providers.py
 │   └── test_integration.py
 ├── config/
-│   └── models.yaml          # Model configurations
+│   └── crypto_models.yaml   # Cryptocurrency model configurations
 ├── pyproject.toml           # Project dependencies
 ├── poetry.lock             # Locked dependencies
 ├── .env.example            # Environment template

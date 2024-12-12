@@ -1,7 +1,7 @@
 """
 Cryptocurrency Market Data Provider
 
-This module provides cryptocurrency market data using Yahoo Finance API as a data source.
+This module provides cryptocurrency market data using multiple data sources.
 Specializes in historical cryptocurrency price and volume data retrieval with support
 for major cryptocurrencies like BTC, ETH, and others.
 
@@ -21,7 +21,7 @@ from .base import BaseProvider
 
 class CryptoMarketProvider(BaseProvider):
     """
-    Provider for historical cryptocurrency market data using Yahoo Finance.
+    Provider for historical cryptocurrency market data.
 
     Fetches and processes cryptocurrency price data with automatic USD pair handling.
     Returns data in a format compatible with CoinMarketCap API structure for

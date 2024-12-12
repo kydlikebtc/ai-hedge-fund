@@ -1,5 +1,5 @@
 """
-Test historical ETH price data retrieval from CoinMarketCap API with Yahoo Finance fallback.
+Test historical ETH price data retrieval from CoinMarketCap API with fallback provider.
 """
 import os
 from datetime import datetime

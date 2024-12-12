@@ -29,7 +29,7 @@ class ModelConfig:
         Raises:
             ConfigurationError: If configuration loading or validation fails
         """
-        self.config_path = config_path or os.path.join("config", "models.yaml")
+        self.config_path = config_path or os.path.join("config", "crypto_models.yaml")
         self.config = self._load_config()
         self._validate_config()
 

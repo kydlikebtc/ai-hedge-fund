@@ -6,7 +6,7 @@ import pandas as pd
 from datetime import datetime
 from typing import Dict, Any
 
-from .providers.yahoo_provider import YahooFinanceProvider
+from .providers.crypto_market_provider import CryptoMarketProvider
 
 
 class CMCClient:
@@ -60,9 +60,9 @@ def get_prices(symbol: str, start_date: str, end_date: str) -> dict:
         logging.error(f"Error fetching prices: {error_msg}")
 
         if "1006" in error_msg and "API Key subscription plan" in error_msg:
-            logging.info("Falling back to Yahoo Finance provider")
-            yahoo_provider = YahooFinanceProvider()
-            return yahoo_provider.get_historical_prices(symbol, start_date, end_date)
+            logging.info("Falling back to CryptoMarket provider")
+            crypto_provider = CryptoMarketProvider()
+            return crypto_provider.get_historical_prices(symbol, start_date, end_date)
         raise
 
 
