@@ -17,7 +17,7 @@ def format_tabular_output(analysis_results, initial_investment=100000.00):
     current_cash = initial_investment
     current_stock = 0.0
 
-    for date in pd.date_range(start='2024-12-01', end='2024-12-11'):
+    for date in pd.date_range(start='2023-12-01', end='2023-12-11'):
         day_data = analysis_results[date.strftime('%Y-%m-%d')]
         action = day_data['action']
         price = day_data['price']
@@ -131,8 +131,8 @@ def main():
             provider,
             market_data,
             financial_data,
-            start_date='2024-12-01',
-            end_date='2024-12-11'
+            start_date='2023-12-01',
+            end_date='2023-12-11'
         )
 
         format_tabular_output(analysis_results)

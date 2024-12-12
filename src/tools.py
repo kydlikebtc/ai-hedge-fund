@@ -1,7 +1,9 @@
 import os
 import time
+import logging
 import requests
 import pandas as pd
+from src.providers import YahooFinanceProvider
 
 
 class CMCClient:
@@ -37,34 +39,71 @@ class CMCClient:
 
 
 def get_prices(symbol: str, start_date: str, end_date: str) -> dict:
-    client = CMCClient()
-    params = {
-        'symbol': symbol,
-        'time_start': start_date,
-        'time_end': end_date,
-        'convert': 'USD'
-    }
+    try:
+        # Try CoinMarketCap first
+        client = CMCClient()
+        params = {
+            'symbol': symbol,
+            'time_start': start_date,
+            'time_end': end_date,
+            'convert': 'USD'
+        }
+        data = client._make_request('cryptocurrency/quotes/historical', params=params)
 
-    return client._make_request(
-        'cryptocurrency/quotes/historical',
-        params=params
-    )
+        # Check for API limitation error
+        if data.get('status', {}).get('error_code') == 1006:
+            logging.info("CoinMarketCap historical data not available, falling back to Yahoo Finance")
+            yahoo = YahooFinanceProvider()
+            return yahoo.get_historical_prices(symbol, start_date, end_date)
+        return data
+    except Exception as e:
+        logging.error(f"Error fetching prices: {e}")
+        # Fallback to Yahoo Finance on any error
+        try:
+            logging.info("Falling back to Yahoo Finance after error")
+            yahoo = YahooFinanceProvider()
+            return yahoo.get_historical_prices(symbol, start_date, end_date)
+        except Exception as e:
+            logging.error(f"Yahoo Finance fallback failed: {e}")
+            raise
 
 
 def prices_to_df(prices: dict) -> pd.DataFrame:
-    quotes = prices['data'][list(prices['data'].keys())[0]]['quotes']
-    df = pd.DataFrame(quotes)
-    df['Date'] = pd.to_datetime(df['timestamp'])
-    df.set_index('Date', inplace=True)
+    """Convert price data to DataFrame, supporting both CMC and Yahoo Finance formats."""
+    # Check if this is Yahoo Finance format
+    if 'data' in prices and any('prices' in quote.get('quote', {}).get('USD', {})
+                               for quote in prices['data'].values()):
+        # Handle Yahoo Finance format
+        symbol = list(prices['data'].keys())[0]
+        price_data = prices['data'][symbol]['quote']['USD']
+        dates = list(price_data['prices'].keys())
+        df = pd.DataFrame({
+            'timestamp': dates,
+            'close': [price_data['prices'][date] for date in dates],
+            'volume': [price_data['volumes'][date] for date in dates]
+        })
+        df['Date'] = pd.to_datetime(df['timestamp'])
+        df.set_index('Date', inplace=True)
+        df = df.drop('timestamp', axis=1)
+    else:
+        # Handle CMC format
+        quotes = prices['data'][list(prices['data'].keys())[0]]['quotes']
+        df = pd.DataFrame(quotes)
+        df['Date'] = pd.to_datetime(df['timestamp'])
+        df.set_index('Date', inplace=True)
 
-    for quote in df['quote'].values:
-        usd_data = quote['USD']
-        for key in ['open', 'high', 'low', 'close', 'volume']:
-            df.loc[df.index[df['quote'] == quote], key] = usd_data.get(key, 0)
+        for quote in df['quote'].values:
+            usd_data = quote['USD']
+            for key in ['open', 'high', 'low', 'close', 'volume']:
+                df.loc[df.index[df['quote'] == quote], key] = usd_data.get(key, 0)
 
-    df = df.drop('quote', axis=1)
+        df = df.drop('quote', axis=1)
+
+    # Common processing for both formats
     numeric_cols = ['open', 'close', 'high', 'low', 'volume']
     for col in numeric_cols:
+        if col not in df.columns:
+            df[col] = 0  # Fill missing columns with 0
         df[col] = pd.to_numeric(df[col], errors='coerce')
 
     df.sort_index(inplace=True)
