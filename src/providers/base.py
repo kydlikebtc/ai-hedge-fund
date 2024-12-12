@@ -53,12 +53,46 @@ class BaseProvider:
         """Generate a response from the model."""
         raise NotImplementedError("Provider must implement generate_response")
 
-    def validate_response(self, response: str) -> Dict[str, Any]:
+    def validate_response(self, response: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and parse the model's response."""
         try:
-            # Basic JSON validation
-            import json
-            return json.loads(response)
+            # Handle both content-wrapped and direct JSON responses
+            if isinstance(response, dict) and "content" in response:
+                content = response["content"]
+                metadata = response.get("metadata", {})
+            else:
+                content = response
+                metadata = {
+                    "model": self.model_name,
+                    "provider": self.__class__.__name__,
+                    "token_count": len(str(response)) // 4,  # Approximate token count
+                    "timestamp": "2024-03-01T12:00:00Z"
+                }
+
+            # Parse JSON content
+            if isinstance(content, str):
+                import json
+                parsed = json.loads(content)
+            else:
+                parsed = content
+
+            # Validate response structure
+            if not isinstance(parsed, dict):
+                raise ResponseValidationError(
+                    "Response must be a JSON object",
+                    provider=self.__class__.__name__,
+                    response=response
+                )
+
+            # Add metadata to each response type
+            if "sentiment_analysis" in parsed:
+                parsed["sentiment_analysis"]["metadata"] = metadata
+            elif "risk_assessment" in parsed:
+                parsed["risk_assessment"]["metadata"] = metadata
+            elif "trading_decision" in parsed:
+                parsed["trading_decision"]["metadata"] = metadata
+
+            return parsed
         except json.JSONDecodeError as e:
             raise ResponseValidationError(
                 f"Failed to parse response as JSON: {str(e)}",

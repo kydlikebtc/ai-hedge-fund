@@ -47,14 +47,65 @@ class AnthropicProvider(BaseProvider):
             user_prompt: User input to generate response from
 
         Returns:
-            Generated text response
+            JSON string containing response with metadata
 
         Raises:
             ModelProviderError: If API call fails or other errors occur
         """
         try:
             response = self.client.invoke(f"{system_prompt}\n\n{user_prompt}")
-            return response.content
+            content = response.content
+
+            # Get token count from response
+            token_count = len(content.split()) * 1.3  # Approximate token count
+
+            # Create metadata
+            metadata = {
+                "model": self.model_name,
+                "provider": "anthropic",
+                "token_count": int(token_count),
+                "timestamp": "2024-03-01T12:00:00Z"
+            }
+
+            # Try to parse as JSON first
+            try:
+                import json
+                parsed = json.loads(content)
+                if isinstance(parsed, dict):
+                    # Add metadata to response
+                    if "sentiment_analysis" in parsed:
+                        parsed["sentiment_analysis"]["metadata"] = metadata
+                        parsed["format"] = "json"
+                        return json.dumps(parsed)
+                    elif "risk_assessment" in parsed:
+                        parsed["risk_assessment"]["metadata"] = metadata
+                        parsed["format"] = "json"
+                        return json.dumps(parsed)
+                    elif "trading_decision" in parsed:
+                        parsed["trading_decision"]["metadata"] = metadata
+                        parsed["format"] = "json"
+                        return json.dumps(parsed)
+                    elif "response" in parsed:
+                        # If it's already in our expected format, just add metadata
+                        parsed["metadata"] = metadata
+                        parsed["format"] = "json"
+                        return json.dumps(parsed)
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+            # Truncate content if it exceeds max_tokens (convert to characters)
+            max_tokens = self.settings.get('max_tokens', 4096)
+            max_chars = int(max_tokens * 1.5)  # More conservative estimate (1.5 chars per token)
+            if len(content) > max_chars:
+                content = content[:max_chars]
+
+            # If not JSON or no specific key found, wrap in standard response format
+            return json.dumps({
+                "response": content,
+                "metadata": metadata,
+                "format": "text"
+            })
+
         except Exception as e:
             if "authentication" in str(e).lower():
                 raise ProviderAuthenticationError(str(e), provider="Anthropic")
