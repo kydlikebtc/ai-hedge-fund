@@ -1,7 +1,12 @@
 import os
 import time
+import logging
 import requests
 import pandas as pd
+from datetime import datetime
+from typing import Dict, Any
+
+from .providers.yahoo_provider import YahooFinanceProvider
 
 
 class CMCClient:
@@ -37,38 +42,68 @@ class CMCClient:
 
 
 def get_prices(symbol: str, start_date: str, end_date: str) -> dict:
-    client = CMCClient()
-    params = {
-        'symbol': symbol,
-        'time_start': start_date,
-        'time_end': end_date,
-        'convert': 'USD'
-    }
+    try:
+        client = CMCClient()
+        params = {
+            'symbol': symbol,
+            'time_start': start_date,
+            'time_end': end_date,
+            'convert': 'USD'
+        }
 
-    return client._make_request(
-        'cryptocurrency/quotes/historical',
-        params=params
-    )
+        return client._make_request(
+            'cryptocurrency/quotes/historical',
+            params=params
+        )
+    except Exception as e:
+        error_msg = str(e)
+        logging.error(f"Error fetching prices: {error_msg}")
+
+        if "1006" in error_msg and "API Key subscription plan" in error_msg:
+            logging.info("Falling back to Yahoo Finance provider")
+            yahoo_provider = YahooFinanceProvider()
+            return yahoo_provider.get_historical_prices(symbol, start_date, end_date)
+        raise
 
 
 def prices_to_df(prices: dict) -> pd.DataFrame:
-    quotes = prices['data'][list(prices['data'].keys())[0]]['quotes']
-    df = pd.DataFrame(quotes)
-    df['Date'] = pd.to_datetime(df['timestamp'])
-    df.set_index('Date', inplace=True)
+    try:
+        if 'data' in prices and list(prices['data'].keys())[0] in prices['data']:
+            symbol_data = prices['data'][list(prices['data'].keys())[0]]
+            if 'quote' in symbol_data and 'USD' in symbol_data['quote']:
+                usd_data = symbol_data['quote']['USD']
+                dates = list(usd_data['prices'].keys())
+                df = pd.DataFrame({
+                    'close': list(usd_data['prices'].values()),
+                    'volume': list(usd_data['volumes'].values())
+                }, index=pd.to_datetime(dates))
 
-    for quote in df['quote'].values:
-        usd_data = quote['USD']
-        for key in ['open', 'high', 'low', 'close', 'volume']:
-            df.loc[df.index[df['quote'] == quote], key] = usd_data.get(key, 0)
+                for col in ['open', 'high', 'low']:
+                    df[col] = 0.0
 
-    df = df.drop('quote', axis=1)
-    numeric_cols = ['open', 'close', 'high', 'low', 'volume']
-    for col in numeric_cols:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+                return df
 
-    df.sort_index(inplace=True)
-    return df
+        quotes = prices['data'][list(prices['data'].keys())[0]]['quotes']
+        df = pd.DataFrame(quotes)
+        df['Date'] = pd.to_datetime(df['timestamp'])
+        df.set_index('Date', inplace=True)
+
+        for quote in df['quote'].values:
+            usd_data = quote['USD']
+            for key in ['open', 'high', 'low', 'close', 'volume']:
+                df.loc[df.index[df['quote'] == quote], key] = usd_data.get(key, 0)
+
+        df = df.drop('quote', axis=1)
+        numeric_cols = ['open', 'close', 'high', 'low', 'volume']
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        df.sort_index(inplace=True)
+        return df
+
+    except Exception as e:
+        logging.error(f"Error converting prices to DataFrame: {e}")
+        raise
 
 
 def get_price_data(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
@@ -80,7 +115,7 @@ def get_market_data(symbol: str) -> dict:
     client = CMCClient()
     params = {
         'symbol': symbol,
-        'convert': 'USD'  # Required for price conversion
+        'convert': 'USD'
     }
 
     return client._make_request(
