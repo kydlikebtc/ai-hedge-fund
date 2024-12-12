@@ -8,7 +8,8 @@ import os
 import yaml
 from ..providers import (
     BaseProvider,
-    OpenAIProvider
+    OpenAIProvider,
+    AnthropicProvider
 )
 
 class ConfigurationError(Exception):
@@ -69,6 +70,39 @@ class ModelConfig:
             if not isinstance(settings['models'], list):
                 raise ConfigurationError(f"Provider {provider} 'models' must be a list")
 
+            # Validate token limits for Claude-3.5 models
+            if provider == 'anthropic' and 'settings' in settings:
+                max_tokens = settings['settings'].get('max_tokens', 4096)
+                if any('-3-5-' in model for model in settings['models']) and max_tokens < 8192:
+                    raise ConfigurationError(f"Claude-3.5 models require max_tokens >= 8192")
+
+    def _validate_model_name(self, provider: str, model_name: str) -> str:
+        """
+        Validate and potentially transform model name.
+
+        Args:
+            provider: Provider name
+            model_name: Model identifier
+
+        Returns:
+            Validated model name
+
+        Raises:
+            ConfigurationError: If model name is invalid
+        """
+        provider_config = self.get_provider_config(provider)
+
+        if provider == 'anthropic':
+            # Handle latest aliases
+            if model_name.endswith('-latest'):
+                base_model = model_name.replace('-latest', '')
+                if any(m.startswith(base_model) for m in provider_config['models']):
+                    return model_name
+            # Validate specific model version
+            if model_name not in provider_config['models']:
+                raise ConfigurationError(f"Invalid model name for {provider}: {model_name}")
+        return model_name
+
     def get_provider_config(self, provider_name: str) -> Dict[str, Any]:
         """
         Get configuration for specific provider.
@@ -125,8 +159,16 @@ def get_model_provider(
         provider_config = config.get_provider_config(provider_name)
         model_name = model or provider_config['default_model']
 
+        # Validate model name
+        model_name = config._validate_model_name(provider_name, model_name)
+
         if provider_name == "openai":
             return OpenAIProvider(
+                model_name=model_name,
+                settings=provider_config.get('settings', {})
+            )
+        elif provider_name == "anthropic":
+            return AnthropicProvider(
                 model_name=model_name,
                 settings=provider_config.get('settings', {})
             )

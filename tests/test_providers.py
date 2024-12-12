@@ -136,6 +136,76 @@ def test_anthropic_provider_initialization(mock_chat_anthropic):
     assert provider.model_name == "claude-3-sonnet-20240229"
 
 @patch('src.providers.anthropic_provider.ChatAnthropicMessages')
+def test_claude_35_models(mock_chat_anthropic):
+    """Test Claude 3.5 model initialization and aliases."""
+    mock_client = Mock()
+    mock_chat_anthropic.return_value = mock_client
+
+    # Test Sonnet with specific version
+    provider = AnthropicProvider(
+        model_name="claude-3-5-sonnet-20241022",
+        settings={'temperature': 0.7}
+    )
+    assert provider.model_name == "claude-3-5-sonnet-20241022"
+    mock_chat_anthropic.assert_called_with(
+        model="claude-3-5-sonnet-20241022",
+        temperature=0.7,
+        max_tokens=8192,
+        top_p=1.0
+    )
+
+    # Test Haiku with specific version
+    provider = AnthropicProvider(
+        model_name="claude-3-5-haiku-20241022",
+        settings={'temperature': 0.7}
+    )
+    assert provider.model_name == "claude-3-5-haiku-20241022"
+    mock_chat_anthropic.assert_called_with(
+        model="claude-3-5-haiku-20241022",
+        temperature=0.7,
+        max_tokens=8192,
+        top_p=1.0
+    )
+
+    # Test Sonnet with latest alias
+    provider = AnthropicProvider(
+        model_name="claude-3-5-sonnet-latest",
+        settings={'temperature': 0.7}
+    )
+    assert provider.model_name == "claude-3-5-sonnet-20241022"
+    mock_chat_anthropic.assert_called_with(
+        model="claude-3-5-sonnet-20241022",
+        temperature=0.7,
+        max_tokens=8192,
+        top_p=1.0
+    )
+
+    # Test Haiku with latest alias
+    provider = AnthropicProvider(
+        model_name="claude-3-5-haiku-latest",
+        settings={'temperature': 0.7}
+    )
+    assert provider.model_name == "claude-3-5-haiku-20241022"
+    mock_chat_anthropic.assert_called_with(
+        model="claude-3-5-haiku-20241022",
+        temperature=0.7,
+        max_tokens=8192,
+        top_p=1.0
+    )
+
+    # Test token limit enforcement
+    provider = AnthropicProvider(
+        model_name="claude-3-5-sonnet-20241022",
+        settings={'temperature': 0.7, 'max_tokens': 4096}  # Try to set lower token limit
+    )
+    mock_chat_anthropic.assert_called_with(
+        model="claude-3-5-sonnet-20241022",
+        temperature=0.7,
+        max_tokens=8192,  # Should enforce minimum 8192 tokens
+        top_p=1.0
+    )
+
+@patch('src.providers.anthropic_provider.ChatAnthropicMessages')
 def test_anthropic_provider_response_generation(mock_chat_anthropic):
     """Test Anthropic provider response generation."""
     mock_client = Mock()

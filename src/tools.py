@@ -80,7 +80,7 @@ def get_market_data(symbol: str) -> dict:
     client = CMCClient()
     params = {
         'symbol': symbol,
-        'convert': 'USD'
+        'convert': 'USD'  # Required for price conversion
     }
 
     return client._make_request(
@@ -92,8 +92,7 @@ def get_market_data(symbol: str) -> dict:
 def get_financial_metrics(symbol: str) -> dict:
     client = CMCClient()
     params = {
-        'symbol': symbol,
-        'convert': 'USD'
+        'symbol': symbol
     }
 
     return client._make_request(
