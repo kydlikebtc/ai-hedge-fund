@@ -13,7 +13,6 @@ Features:
 """
 from datetime import datetime, timedelta
 import logging
-import yfinance as yf
 from typing import Dict, Any
 
 from .base import BaseProvider
@@ -66,28 +65,62 @@ class CryptoMarketProvider(BaseProvider):
                          }
                      }
                  }
+
+        Raises:
+            ValueError: If no data is returned or date validation fails
+            Exception: For other API or processing errors
         """
         try:
-            # Parse dates
-            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-            # Add one day to end_date to make it inclusive
-            adjusted_end = (end_dt + timedelta(days=1)).strftime('%Y-%m-%d')
+            # Validate dates
+            try:
+                start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+                end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+                if start_dt > end_dt:
+                    raise ValueError("Start date must be before end date")
+                if end_dt > datetime.now():
+                    raise ValueError("End date cannot be in the future")
+            except ValueError as e:
+                self.logger.error(f"Date validation failed: {e}")
+                raise
 
-            self.logger.info(f"Fetching {symbol} cryptocurrency data from {start_date} to {adjusted_end}")
+            self.logger.info(f"Fetching {symbol} cryptocurrency data from {start_date} to {end_date}")
 
-            # Create ticker with -USD suffix for crypto pairs
-            ticker = yf.Ticker(f"{symbol}-USD")
+            # Initialize CMC client for data fetching
+            from src.tools import CMCClient
+            client = CMCClient()
 
             # Get historical data with adjusted end date
-            df = ticker.history(start=start_date, end=adjusted_end)
+            try:
+                response = client.get_historical_prices(symbol, start_date, end_date)
+            except Exception as e:
+                self.logger.error(f"CMC API error: {str(e)}")
+                raise ValueError(f"Failed to fetch data from CoinMarketCap API: {str(e)}")
 
-            if df.empty:
-                raise ValueError(f"No cryptocurrency data returned for {symbol} in date range")
+            # Validate response structure
+            if not response or 'data' not in response:
+                raise ValueError(f"Invalid response format from CoinMarketCap API for {symbol}")
 
-            # Convert dates to string format
-            dates = df.index.strftime('%Y-%m-%d').tolist()
-            prices = df['Close'].tolist()
-            volumes = df['Volume'].tolist()
+            if symbol not in response['data']:
+                raise ValueError(f"No data found for symbol {symbol} in response")
+
+            if 'quote' not in response['data'][symbol]:
+                raise ValueError(f"Missing quote data for {symbol}")
+
+            if 'USD' not in response['data'][symbol]['quote']:
+                raise ValueError(f"Missing USD quote data for {symbol}")
+
+            # Extract price and volume data from CMC response
+            quote_data = response['data'][symbol]['quote']['USD']
+
+            if 'prices' not in quote_data or 'volumes' not in quote_data:
+                raise ValueError(f"Missing price or volume data for {symbol}")
+
+            dates = list(quote_data['prices'].keys())
+            prices = list(quote_data['prices'].values())
+            volumes = list(quote_data['volumes'].values())
+
+            if not dates or not prices or not volumes:
+                raise ValueError(f"Empty price or volume data for {symbol}")
 
             self.logger.info(f"Retrieved {len(dates)} days of data")
             self.logger.debug(f"Date range: {dates[0]} to {dates[-1]}")

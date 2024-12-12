@@ -6,7 +6,7 @@ import pandas as pd
 from datetime import datetime
 from typing import Dict, Any
 
-from .providers.crypto_market_provider import CryptoMarketProvider
+from src.providers.crypto_market_provider import CryptoMarketProvider
 
 
 class CMCClient:
