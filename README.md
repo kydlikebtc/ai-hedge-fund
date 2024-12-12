@@ -17,7 +17,7 @@ Note: the system simulates trading decisions, it does not actually trade.
 
 This project is for **educational and research purposes only**.
 
-- Not intended for real trading or investment
+- Not intended for real trading or investment.
 - No warranties or guarantees provided
 - Past performance does not indicate future results
 - Creator assumes no liability for financial losses
@@ -119,7 +119,7 @@ You can optionally specify the start and end dates to backtest over a specific t
 poetry run python src/backtester.py --ticker AAPL --start-date 2024-01-01 --end-date 2024-03-01
 ```
 
-## Project Structure 
+## Project Structure
 ```
 ai-hedge-fund/
 ├── src/
