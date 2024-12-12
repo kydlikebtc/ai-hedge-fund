@@ -1,19 +1,38 @@
-# AI Hedge Fund
+# AI Hedge Fund 🤖📈
 
-An AI-powered hedge fund that uses multiple agents to make trading decisions. The system employs several agents working together:
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+[![Poetry](https://img.shields.io/badge/poetry-package%20manager-blue)](https://python-poetry.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-1. Market Data Analyst - Gathers and preprocesses market data
-2. Sentiment Agent - Analyzes market sentiment and generates trading signals
-3. Fundamentals Agent - Analyzes fundamental data and generates trading signals
-4. Quant Analyst - Analyzes technical indicators and generates trading signals
-5. Risk Manager - Evaluates portfolio risk and sets position limits
-6. Portfolio Manager - Makes final trading decisions and generates orders
+An AI-powered hedge fund that uses multiple agents to make trading decisions. The system employs several specialized agents working together to analyze markets and execute trades.
 
-<img width="1025" alt="Screenshot 2024-12-11 at 12 20 37 AM" src="https://github.com/user-attachments/assets/a03aed40-46cc-45a2-92c5-2a34acb27fd2">
+<img width="1025" alt="AI Hedge Fund Architecture" src="https://github.com/user-attachments/assets/a03aed40-46cc-45a2-92c5-2a34acb27fd2">
 
-Note: the system simulates trading decisions, it does not actually trade.
+> **Note**: This system simulates trading decisions, it does not actually execute trades.
 
-## Disclaimer
+## 📋 Table of Contents
+- [Disclaimer](#-disclaimer)
+- [Features](#-features)
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+  - [Setting up Poetry](#setting-up-poetry)
+  - [Installing Dependencies](#installing-dependencies)
+  - [Configuring API Keys](#configuring-api-keys)
+  - [Verification Steps](#verification-steps)
+- [Usage](#-usage)
+  - [Running the Hedge Fund](#running-the-hedge-fund)
+  - [Running with Reasoning](#running-with-reasoning)
+  - [Running the Backtester](#running-the-backtester)
+- [Architecture](#-architecture)
+  - [Agent System](#agent-system)
+  - [Data Providers](#data-providers)
+- [Project Structure](#-project-structure)
+- [Development](#-development)
+  - [Testing](#testing)
+  - [Contributing](#contributing)
+- [License](#-license)
+
+## ⚠️ Disclaimer
 
 This project is for **educational and research purposes only**.
 
@@ -25,81 +44,111 @@ This project is for **educational and research purposes only**.
 
 By using this software, you agree to use it solely for learning purposes.
 
-## Table of Contents
-- [Features](#features)
-- [Setup](#setup)
-- [Usage](#usage)
-  - [Running the Hedge Fund](#running-the-hedge-fund)
-  - [Running the Hedge Fund (with Reasoning)](#running-the-hedge-fund-with-reasoning)
-  - [Running the Backtester](#running-the-backtester)
-- [Project Structure](#project-structure)
-- [Contributing](#contributing)
-- [License](#license)
+## ✨ Features
 
-## Features
-
-- Multi-agent architecture for trading decisions
-- Technical analysis using MACD, RSI, Bollinger Bands, and OBV
+- Multi-agent architecture for sophisticated trading decisions:
+  - Market Data Agent: Gathers and preprocesses market data
+  - Sentiment Agent: Analyzes market sentiment
+  - Fundamentals Agent: Analyzes company financials
+  - Quant Agent: Processes technical indicators
+  - Risk Manager: Evaluates portfolio risk
+  - Portfolio Manager: Makes final trading decisions
+- Technical analysis using multiple indicators:
+  - MACD (Moving Average Convergence Divergence)
+  - RSI (Relative Strength Index)
+  - Bollinger Bands
+  - OBV (On-Balance Volume)
 - Fundamental analysis using financial metrics
 - Sentiment analysis using web search
-- Risk management with position sizing recommendations
-- Portfolio management with automated trading decisions
-- Backtesting capabilities with performance analytics
+- Risk management with position sizing
+- Portfolio management with automated decisions
+- Comprehensive backtesting capabilities
 
-## Setup
+## 🔧 Requirements
 
-Clone the repository:
+- Python 3.8 or higher
+- Poetry package manager
+- API Keys:
+  - OpenAI API key
+  - Financial Datasets API key
+
+## 📥 Installation
+
+### Setting up Poetry
+
 ```bash
-git clone https://github.com/virattt/ai-hedge-fund.git
-cd ai-hedge-fund
-```
-
-1. Install Poetry (if not already installed):
-```bash
+# Install Poetry if not already installed
 curl -sSL https://install.python-poetry.org | python3 -
 ```
 
-2. Install dependencies:
+### Installing Dependencies
+
 ```bash
+# Clone the repository
+git clone https://github.com/virattt/ai-hedge-fund.git
+cd ai-hedge-fund
+
+# Install project dependencies
 poetry install
 ```
 
-3. Set up your environment variables:
-```bash
-# Create .env file for your API keys
-cp .env.example .env
+### Configuring API Keys
 
-export OPENAI_API_KEY='your-api-key-here' # Get a key from https://platform.openai.com/
-export FINANCIAL_DATASETS_API_KEY='your-api-key-here' # Get a key from https://financialdatasets.ai/
+1. Create your environment file:
+```bash
+cp .env.example .env
 ```
 
-## Usage
+2. Set up your API keys:
+```bash
+# Get your API key from https://platform.openai.com/
+export OPENAI_API_KEY='your-api-key-here'
+
+# Get your API key from https://financialdatasets.ai/
+export FINANCIAL_DATASETS_API_KEY='your-api-key-here'
+```
+
+### Verification Steps
+
+1. Verify Poetry installation:
+```bash
+poetry --version
+```
+
+2. Verify environment setup:
+```bash
+poetry run python -c "import os; print('OpenAI API Key:', bool(os.getenv('OPENAI_API_KEY')))"
+```
+
+## 🚀 Usage
 
 ### Running the Hedge Fund
 
+Basic usage:
 ```bash
 poetry run python src/agents.py --ticker AAPL
 ```
-You can optionally specify the start and end dates to make decisions for a specific time period.
 
+With date range:
 ```bash
 poetry run python src/agents.py --ticker AAPL --start-date 2024-01-01 --end-date 2024-03-01
 ```
 
-### Running the Hedge Fund (with Reasoning)
-This will print the reasoning of each agent to the console.
+### Running with Reasoning
 
+View detailed agent decision-making process:
 ```bash
 poetry run python src/agents.py --ticker AAPL --show-reasoning
 ```
 
 ### Running the Backtester
 
+Basic backtesting:
 ```bash
 poetry run python src/backtester.py --ticker AAPL
 ```
 
-**Example Output:**
+Example output:
 ```
 Starting backtest...
 Date         Ticker Action Quantity    Price         Cash    Stock  Total Value
@@ -113,25 +162,68 @@ Date         Ticker Action Quantity    Price         Cash    Stock  Total Value
 2024-01-09   AAPL   buy       520.0   185.14       109.77    520.0     96382.57
 ```
 
-You can optionally specify the start and end dates to backtest over a specific time period.
+## 🏗️ Architecture
 
-```bash
-poetry run python src/backtester.py --ticker AAPL --start-date 2024-01-01 --end-date 2024-03-01
-```
+### Agent System
 
-## Project Structure 
+The system uses a multi-agent architecture where each agent specializes in different aspects of trading:
+
+1. **Market Data Agent**: Gathers and preprocesses market data
+2. **Sentiment Agent**: Analyzes market sentiment and news
+3. **Fundamentals Agent**: Analyzes company financial metrics
+4. **Quant Agent**: Processes technical indicators
+5. **Risk Manager**: Evaluates portfolio risk
+6. **Portfolio Manager**: Makes final trading decisions
+
+### Data Providers
+
+The system supports multiple data sources:
+- Stock data from Financial Datasets API
+- Cryptocurrency data from CoinMarketCap API
+- News and sentiment data from various sources
+
+## 📁 Project Structure
+
 ```
 ai-hedge-fund/
 ├── src/
-│   ├── agents.py # Main agent definitions and workflow
-│   ├── backtester.py # Backtesting functionality
-│   ├── tools.py # Agent tools
-├── pyproject.toml # Poetry configuration
-├── .env.example # Environment variables
-└── README.md # Documentation
+│   ├── agents/
+│   │   ├── __init__.py
+│   │   ├── base.py          # Base agent classes
+│   └── specialized.py   # Specialized agent implementations
+│   ├── providers/
+│   │   ├── __init__.py
+│   │   ├── base.py          # Base provider interface
+│   │   ├── openai_provider.py
+│   │   └── anthropic_provider.py
+│   ├── config/
+│   │   ├── __init__.py
+│   │   └── model_config.py  # Model configurations
+│   ├── agents.py            # Main agent workflow
+│   ├── backtester.py        # Backtesting system
+│   └── tools.py             # Utility functions
+├── tests/
+│   ├── test_technical_analysis.py
+│   ├── test_providers.py
+│   └── test_integration.py
+├── config/
+│   └── models.yaml          # Model configurations
+├── pyproject.toml           # Project dependencies
+├── poetry.lock             # Locked dependencies
+├── .env.example            # Environment template
+└── README.md               # Documentation
 ```
 
-## Contributing
+## 🛠️ Development
+
+### Testing
+
+Run the test suite:
+```bash
+poetry run pytest
+```
+
+### Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -139,6 +231,12 @@ ai-hedge-fund/
 4. Push to the branch
 5. Create a Pull Request
 
-## License
+Please ensure your PR:
+- Includes tests for new features
+- Updates documentation as needed
+- Follows the existing code style
+- Includes a clear description of changes
+
+## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
