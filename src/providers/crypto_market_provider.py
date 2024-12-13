@@ -13,7 +13,7 @@ Features:
 """
 from datetime import datetime, timedelta
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from .base import BaseProvider
 
@@ -32,44 +32,30 @@ class CryptoMarketProvider(BaseProvider):
         self.logger = logging.getLogger(__name__)
         super().__init__()
 
-    def _initialize_provider(self) -> None:
+    async def _initialize_provider(self) -> None:
         """Initialize the cryptocurrency data provider."""
         # No API keys required for basic crypto price data
         self.logger.info("Initialized cryptocurrency market data provider")
 
-    def get_historical_prices(self, symbol: str, start_date: str, end_date: str) -> Dict[str, Any]:
-        """
-        Get historical price data for a cryptocurrency.
+    async def get_market_data(self, symbol: str) -> Dict[str, Any]:
+        """Get current market data for a cryptocurrency."""
+        try:
+            # Initialize CMC client for data fetching
+            from src.tools import CMCClient
+            client = CMCClient()
 
-        Retrieves historical price and volume data for any cryptocurrency pair
-        against USD. Automatically handles cryptocurrency symbol formatting by
-        appending -USD suffix for proper pair querying.
+            # Get current market data
+            response = await client.get_market_data(symbol)
+            if not response or 'data' not in response:
+                raise ValueError(f"Invalid response format from CoinMarketCap API for {symbol}")
 
-        Args:
-            symbol: The cryptocurrency symbol (e.g., 'BTC', 'ETH')
-            start_date: Start date in YYYY-MM-DD format
-            end_date: End date in YYYY-MM-DD format
+            return response
+        except Exception as e:
+            self.logger.error(f"Error fetching market data: {e}")
+            raise
 
-        Returns:
-            dict: Historical price and volume data in CoinMarketCap-compatible format
-                 with the following structure:
-                 {
-                     'data': {
-                         'BTC': {
-                             'quote': {
-                                 'USD': {
-                                     'prices': {'2024-01-01': 42000.00, ...},
-                                     'volumes': {'2024-01-01': 1234567.89, ...}
-                                 }
-                             }
-                         }
-                     }
-                 }
-
-        Raises:
-            ValueError: If no data is returned or date validation fails
-            Exception: For other API or processing errors
-        """
+    async def get_price_data(self, symbol: str, start_date: str, end_date: str) -> Dict[str, Any]:
+        """Get historical price data for a cryptocurrency."""
         try:
             # Validate dates
             try:
@@ -77,8 +63,6 @@ class CryptoMarketProvider(BaseProvider):
                 end_dt = datetime.strptime(end_date, '%Y-%m-%d')
                 if start_dt > end_dt:
                     raise ValueError("Start date must be before end date")
-                if end_dt > datetime.now():
-                    raise ValueError("End date cannot be in the future")
             except ValueError as e:
                 self.logger.error(f"Date validation failed: {e}")
                 raise
@@ -89,55 +73,40 @@ class CryptoMarketProvider(BaseProvider):
             from src.tools import CMCClient
             client = CMCClient()
 
-            # Get historical data with adjusted end date
+            # Get historical data
             try:
-                response = client.get_historical_prices(symbol, start_date, end_date)
+                response = await client.get_historical_prices(symbol, start_date, end_date)
             except Exception as e:
                 self.logger.error(f"CMC API error: {str(e)}")
                 raise ValueError(f"Failed to fetch data from CoinMarketCap API: {str(e)}")
 
-            # Validate response structure
+            # Validate response
             if not response or 'data' not in response:
                 raise ValueError(f"Invalid response format from CoinMarketCap API for {symbol}")
 
-            if symbol not in response['data']:
-                raise ValueError(f"No data found for symbol {symbol} in response")
-
-            if 'quote' not in response['data'][symbol]:
-                raise ValueError(f"Missing quote data for {symbol}")
-
-            if 'USD' not in response['data'][symbol]['quote']:
-                raise ValueError(f"Missing USD quote data for {symbol}")
-
-            # Extract price and volume data from CMC response
-            quote_data = response['data'][symbol]['quote']['USD']
-
-            if 'prices' not in quote_data or 'volumes' not in quote_data:
-                raise ValueError(f"Missing price or volume data for {symbol}")
-
-            dates = list(quote_data['prices'].keys())
-            prices = list(quote_data['prices'].values())
-            volumes = list(quote_data['volumes'].values())
-
-            if not dates or not prices or not volumes:
-                raise ValueError(f"Empty price or volume data for {symbol}")
-
-            self.logger.info(f"Retrieved {len(dates)} days of data")
-            self.logger.debug(f"Date range: {dates[0]} to {dates[-1]}")
-
-            # Format data to match CoinMarketCap structure
-            return {
-                'data': {
-                    symbol: {
-                        'quote': {
-                            'USD': {
-                                'prices': dict(zip(dates, prices)),
-                                'volumes': dict(zip(dates, volumes))
-                            }
-                        }
-                    }
-                }
-            }
+            return response
         except Exception as e:
             self.logger.error(f"Error fetching cryptocurrency historical prices: {e}")
+            raise
+
+    async def get_supported_cryptocurrencies(self) -> Dict[str, str]:
+        """Get list of supported cryptocurrencies."""
+        try:
+            # Initialize CMC client
+            from src.tools import CMCClient
+            client = CMCClient()
+
+            # Get supported cryptocurrencies
+            response = await client.get_available_cryptocurrencies()
+            if not response or 'data' not in response:
+                raise ValueError("Invalid response format from CoinMarketCap API")
+
+            # Convert to simple symbol -> name mapping
+            cryptos = {}
+            for crypto in response['data']:
+                cryptos[crypto['symbol']] = crypto['name']
+
+            return cryptos
+        except Exception as e:
+            self.logger.error(f"Error fetching supported cryptocurrencies: {e}")
             raise

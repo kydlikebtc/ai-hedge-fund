@@ -1,173 +1,147 @@
 """
-Specialized cryptocurrency trading agent implementations that inherit from BaseAgent.
+Specialized cryptocurrency trading agent implementations.
 """
 
 from typing import Dict, Any
-import json
+from datetime import datetime
 from .base import BaseAgent
-from ..providers import BaseProvider
+from ..tools import (
+    calculate_bollinger_bands, calculate_macd,
+    calculate_obv, calculate_rsi, get_market_data,
+    get_price_data, prices_to_df
+)
+
+class MarketDataAgent(BaseAgent):
+    """Analyzes current market data and trends for any cryptocurrency."""
+
+    async def analyze(self, price_data, market_data, show_reasoning=False):
+        try:
+            if not market_data or 'data' not in market_data:
+                return "Error: No market data available"
+
+            crypto_data = list(market_data['data'].values())[0]
+            quote = crypto_data['quote']['USD']
+
+            analysis = (
+                f"Current Price: ${quote['price']:.2f}\n"
+                f"24h Change: {quote['percent_change_24h']:.2f}%\n"
+                f"Volume: ${quote['volume_24h']/1e6:.1f}M\n"
+                f"Market Cap: ${quote['market_cap']/1e9:.2f}B"
+            )
+            return analysis
+        except Exception as e:
+            return f"Error analyzing market data: {str(e)}"
 
 class SentimentAgent(BaseAgent):
-    """Analyzes cryptocurrency market sentiment using configurable AI providers, specializing in BTC and major altcoins."""
+    """Analyzes market sentiment for any cryptocurrency."""
 
-    def analyze_sentiment(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Analyze cryptocurrency market sentiment from market data and on-chain metrics.
-
-        Args:
-            state: Current workflow state containing cryptocurrency market data,
-                  including BTC price, volume, and network metrics
-
-        Returns:
-            Updated state with cryptocurrency sentiment analysis
-        """
-        system_prompt = """
-        You are a cryptocurrency market sentiment analyst.
-        Analyze the market data and trading signals to provide sentiment analysis.
-        Consider factors like:
-        - Trading volume and market cap trends
-        - Social media sentiment and community activity
-        - Network metrics (transactions, active addresses)
-        - Market dominance and correlation with major cryptocurrencies
-
-        Return your analysis as JSON with the following fields:
-        - sentiment_score: float between -1 (extremely bearish) and 1 (extremely bullish)
-        - confidence: float between 0 and 1
-        - reasoning: string explaining the crypto-specific analysis
-        """
-
-        user_prompt = f"""
-        Analyze the following market data and trading signals:
-        Market Data: {state.get('market_data', {})}
-        """
-
+    async def analyze(self, price_data, market_data, show_reasoning=False):
         try:
-            response = self.generate_response(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt
+            quote = list(market_data['data'].values())[0]['quote']['USD']
+            sentiment = "bullish" if quote['percent_change_24h'] > 0 else "bearish"
+
+            analysis = (
+                f"Market Sentiment: {sentiment.upper()}\n"
+                f"24h Trend: {quote['percent_change_24h']:.2f}%\n"
+                f"7d Trend: {quote['percent_change_7d']:.2f}%"
             )
-            analysis = self.validate_response(response)
-            if "error" in analysis:
-                state["error"] = analysis["error"]
-                return state
-            state['sentiment_analysis'] = analysis
-            return state
+            return analysis
         except Exception as e:
-            state['sentiment_analysis'] = {
-                'sentiment_score': 0,
-                'confidence': 0,
-                'reasoning': f'Error analyzing sentiment: {str(e)}'
-            }
-            return state
+            return f"Error analyzing sentiment: {str(e)}"
+
+class TechnicalAgent(BaseAgent):
+    """Analyzes technical indicators for any cryptocurrency."""
+
+    async def analyze(self, price_data, market_data, show_reasoning=False):
+        try:
+            # Price data is already a DataFrame from get_price_data
+            df = price_data
+            if df.empty:
+                return "Error: No price data available for technical analysis"
+
+            # Calculate technical indicators
+            rsi = calculate_rsi(df)
+            macd_line, signal_line = calculate_macd(df)
+            upper_band, lower_band = calculate_bollinger_bands(df)
+
+            # Get latest values and ensure they're scalar
+            latest_rsi = float(rsi.iloc[-1])
+            latest_macd = float(macd_line.iloc[-1])
+            latest_signal = float(signal_line.iloc[-1])
+            latest_close = float(df['close'].iloc[-1])
+            latest_upper = float(upper_band.iloc[-1])
+            latest_lower = float(lower_band.iloc[-1])
+
+            # Generate analysis based on technical indicators
+            # RSI Analysis
+            if latest_rsi > 70:
+                rsi_signal = "Overbought"
+            elif latest_rsi < 30:
+                rsi_signal = "Oversold"
+            else:
+                rsi_signal = "Neutral"
+
+            # MACD Analysis
+            macd_signal = "Bullish" if latest_macd > latest_signal else "Bearish"
+
+            # Bollinger Bands Analysis
+            if latest_close > latest_upper:
+                bb_signal = "Overbought"
+            elif latest_close < latest_lower:
+                bb_signal = "Oversold"
+            else:
+                bb_signal = "Neutral"
+
+            analysis = (
+                f"Technical Analysis:\n"
+                f"RSI (14): {latest_rsi:.2f} - {rsi_signal}\n"
+                f"MACD Signal: {macd_signal} (MACD: {latest_macd:.2f}, Signal: {latest_signal:.2f})\n"
+                f"Bollinger Bands: {bb_signal} (Price: {latest_close:.2f}, Upper: {latest_upper:.2f}, Lower: {latest_lower:.2f})"
+            )
+
+            return analysis
+        except Exception as e:
+            return f"Error analyzing technical indicators: {str(e)}"
 
 class RiskManagementAgent(BaseAgent):
-    """Evaluates cryptocurrency portfolio risk using configurable AI providers, with emphasis on BTC market dynamics."""
+    """Analyzes market risks for any cryptocurrency."""
 
-    def evaluate_risk(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Evaluate cryptocurrency trading risk based on market conditions.
-
-        Args:
-            state: Current workflow state with cryptocurrency market data and sentiment,
-                  including BTC volatility and market metrics
-
-        Returns:
-            Updated state with cryptocurrency risk assessment
-        """
-        system_prompt = """
-        You are a cryptocurrency risk management specialist.
-        Evaluate trading risk based on market data and sentiment analysis.
-        Consider factors like:
-        - Market volatility and 24/7 trading patterns
-        - Liquidity depth and exchange distribution
-        - Historical price action and support/resistance levels
-        - Network security and protocol risks
-
-        Return your assessment as JSON with the following fields:
-        - risk_level: string (low, moderate, high)
-        - position_limit: float (maximum position size as % of portfolio)
-        - stop_loss: float (recommended stop-loss percentage)
-        - reasoning: string explaining the crypto-specific assessment
-        """
-
-        user_prompt = f"""
-        Evaluate risk based on:
-        Market Data: {state.get('market_data', {})}
-        Sentiment Analysis: {state.get('sentiment_analysis', {})}
-        """
-
+    async def analyze(self, price_data, market_data, show_reasoning=False):
         try:
-            response = self.generate_response(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt
+            quote = list(market_data['data'].values())[0]['quote']['USD']
+            volatility = abs(quote['percent_change_24h'])
+
+            risk_level = "HIGH" if volatility > 10 else "MEDIUM" if volatility > 5 else "LOW"
+
+            analysis = (
+                f"Risk Level: {risk_level}\n"
+                f"Volatility: {volatility:.2f}%\n"
+                f"Volume Change: {quote['volume_change_24h']:.2f}%"
             )
-            assessment = self.validate_response(response)
-            if "error" in assessment:
-                state["error"] = assessment["error"]
-                return state
-            state['risk_assessment'] = assessment
-            return state
+            return analysis
         except Exception as e:
-            state['risk_assessment'] = {
-                'risk_level': 'high',
-                'position_limit': 0,
-                'reasoning': f'Error evaluating risk: {str(e)}'
-            }
-            return state
+            return f"Error analyzing risks: {str(e)}"
 
-class PortfolioManagementAgent(BaseAgent):
-    """Makes final cryptocurrency trading decisions using configurable AI providers, optimized for BTC-focused strategies."""
+class PortfolioAgent(BaseAgent):
+    """Provides portfolio recommendations for any cryptocurrency."""
 
-    def make_decision(self, state: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Make final cryptocurrency trading decision based on all signals.
-
-        Args:
-            state: Current workflow state with all cryptocurrency analyses,
-                  including BTC market data, sentiment, and risk metrics
-
-        Returns:
-            Updated state with cryptocurrency trading decision
-        """
-        system_prompt = """
-        You are a cryptocurrency portfolio manager making final trading decisions.
-        Make decisions based on market data, sentiment, and risk assessment.
-        Consider factors like:
-        - Market cycles and trend strength
-        - Technical indicators adapted for 24/7 markets
-        - On-chain metrics and network health
-        - Cross-market correlations and market dominance
-
-        Return your decision as JSON with the following fields:
-        - action: string (buy, sell, hold)
-        - quantity: float (amount in USD to trade)
-        - entry_price: float (target entry price in USD)
-        - stop_loss: float (stop-loss price in USD)
-        - reasoning: string explaining the crypto-specific decision
-        """
-
-        user_prompt = f"""
-        Make trading decision based on:
-        Market Data: {state.get('market_data', {})}
-        Sentiment Analysis: {state.get('sentiment_analysis', {})}
-        Risk Assessment: {state.get('risk_assessment', {})}
-        """
-
+    async def analyze(self, price_data, market_data, show_reasoning=False):
         try:
-            response = self.generate_response(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt
+            quote = list(market_data['data'].values())[0]['quote']['USD']
+            trend = quote['percent_change_24h']
+
+            if trend > 5:
+                action = "TAKE PROFIT"
+            elif trend < -5:
+                action = "BUY DIP"
+            else:
+                action = "HOLD"
+
+            analysis = (
+                f"Recommended Action: {action}\n"
+                f"Price Trend: {trend:.2f}%\n"
+                f"Market Direction: {'Upward' if trend > 0 else 'Downward'}"
             )
-            decision = self.validate_response(response)
-            if "error" in decision:
-                state["error"] = decision["error"]
-                return state
-            state['trading_decision'] = decision
-            return state
+            return analysis
         except Exception as e:
-            state['trading_decision'] = {
-                'action': 'hold',
-                'quantity': 0,
-                'reasoning': f'Error making decision: {str(e)}'
-            }
-            return state
+            return f"Error generating portfolio advice: {str(e)}"

@@ -1,184 +1,208 @@
 import os
-import time
 import logging
-import requests
 import pandas as pd
+import aiohttp
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, List, Tuple
 
+from src.providers.mock_provider import MockCryptoProvider
 from src.providers.crypto_market_provider import CryptoMarketProvider
 
 
 class CMCClient:
+    """CoinMarketCap API client."""
+
     def __init__(self):
-        self.api_key = os.environ.get("COINMARKETCAP_API_KEY")
+        self.api_key = os.getenv('COINMARKETCAP_API_KEY')
         if not self.api_key:
-            raise ValueError("COINMARKETCAP_API_KEY environment variable is not set")
+            raise ValueError("COINMARKETCAP_API_KEY environment variable not set")
         self.base_url = "https://pro-api.coinmarketcap.com/v1"
-        self.session = requests.Session()
-        self.session.headers.update({
+        self.headers = {
             'X-CMC_PRO_API_KEY': self.api_key,
             'Accept': 'application/json'
-        })
-
-    def _handle_rate_limit(self, response: requests.Response) -> bool:
-        if response.status_code == 429:
-            retry_after = int(response.headers.get('Retry-After', 60))
-            time.sleep(retry_after)
-            return True
-        return False
-
-    def _make_request(self, endpoint: str, params: dict = None) -> dict:
-        url = f"{self.base_url}/{endpoint}"
-        while True:
-            response = self.session.get(url, params=params)
-            if not self._handle_rate_limit(response):
-                break
-
-        if response.status_code == 200:
-            return response.json()
-        else:
-            raise Exception(f"Error fetching data: {response.status_code} - {response.text}")
-
-
-def get_prices(symbol: str, start_date: str, end_date: str) -> dict:
-    try:
-        client = CMCClient()
-        params = {
-            'symbol': symbol,
-            'time_start': start_date,
-            'time_end': end_date,
-            'convert': 'USD'
         }
 
-        return client._make_request(
-            'cryptocurrency/quotes/historical',
-            params=params
-        )
-    except Exception as e:
-        error_msg = str(e)
-        logging.error(f"Error fetching prices: {error_msg}")
+    async def _make_request(self, endpoint: str, params: Dict = None) -> Dict[str, Any]:
+        """Make an async request to the CoinMarketCap API."""
+        url = f"{self.base_url}/{endpoint}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=self.headers, params=params) as response:
+                if response.status != 200:
+                    raise Exception(f"API request failed: {await response.text()}")
+                return await response.json()
 
-        if "1006" in error_msg and "API Key subscription plan" in error_msg:
-            logging.info("Falling back to CryptoMarket provider")
-            crypto_provider = CryptoMarketProvider()
-            return crypto_provider.get_historical_prices(symbol, start_date, end_date)
-        raise
+    async def get_market_data(self, symbol: str) -> Dict[str, Any]:
+        """Get current market data for a cryptocurrency."""
+        endpoint = "cryptocurrency/quotes/latest"
+        params = {'symbol': symbol, 'convert': 'USD'}
+        return await self._make_request(endpoint, params)
+
+    async def get_historical_prices(self, symbol: str, start_date: str, end_date: str) -> Dict[str, Any]:
+        """Get historical price data for a cryptocurrency."""
+        endpoint = "cryptocurrency/quotes/historical"
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+        params = {
+            'symbol': symbol,
+            'time_start': start.strftime("%Y-%m-%dT00:00:00Z"),
+            'time_end': end.strftime("%Y-%m-%dT23:59:59Z"),
+            'convert': 'USD'
+        }
+        return await self._make_request(endpoint, params)
+
+    async def get_available_cryptocurrencies(self) -> Dict[str, Any]:
+        """Get list of available cryptocurrencies."""
+        endpoint = "cryptocurrency/map"
+        params = {'limit': 100, 'sort': 'cmc_rank'}
+        return await self._make_request(endpoint, params)
 
 
-def prices_to_df(prices: dict) -> pd.DataFrame:
+async def get_market_data(symbol: str) -> Dict[str, Any]:
+    """Get current market data for a cryptocurrency."""
     try:
-        if 'data' in prices and list(prices['data'].keys())[0] in prices['data']:
-            symbol_data = prices['data'][list(prices['data'].keys())[0]]
-            if 'quote' in symbol_data and 'USD' in symbol_data['quote']:
-                usd_data = symbol_data['quote']['USD']
-                dates = list(usd_data['prices'].keys())
-                df = pd.DataFrame({
-                    'close': list(usd_data['prices'].values()),
-                    'volume': list(usd_data['volumes'].values())
-                }, index=pd.to_datetime(dates))
+        if os.getenv('COINMARKETCAP_API_KEY'):
+            provider = CryptoMarketProvider()
+        else:
+            logging.info("Using mock provider for market data")
+            provider = MockCryptoProvider()
 
-                for col in ['open', 'high', 'low']:
-                    df[col] = 0.0
+        return await provider.get_market_data(symbol)
+    except Exception as e:
+        raise Exception(f"Failed to get market data: {str(e)}")
 
+
+async def get_price_data(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
+    """Get historical price data for a cryptocurrency."""
+    try:
+        if os.getenv('COINMARKETCAP_API_KEY'):
+            provider = CryptoMarketProvider()
+        else:
+            logging.info("Using mock provider for price data")
+            provider = MockCryptoProvider()
+
+        prices = await provider.get_price_data(symbol, start_date, end_date)
+        return prices_to_df(prices)
+    except Exception as e:
+        raise Exception(f"Failed to get price data: {str(e)}")
+
+
+def prices_to_df(price_data: Dict[str, Any]) -> pd.DataFrame:
+    """Convert price data to DataFrame format."""
+    try:
+        if not isinstance(price_data, dict):
+            raise ValueError("Price data must be a dictionary")
+
+        if isinstance(price_data, dict) and 'price_data' in price_data:
+            df = price_data['price_data']
+            if isinstance(df, pd.DataFrame):
+                return df.copy()
+
+        if isinstance(price_data, dict) and 'data' in price_data:
+            symbol_data = list(price_data['data'].values())[0]
+            if 'quotes' in symbol_data:
+                quotes = symbol_data['quotes']
+                rows = []
+                for quote in quotes:
+                    usd_data = quote['quote']['USD']
+                    row = {
+                        'timestamp': quote['timestamp'],
+                        'open': usd_data['open'],
+                        'high': usd_data['high'],
+                        'low': usd_data['low'],
+                        'close': usd_data['close'],
+                        'volume': usd_data['volume']
+                    }
+                    rows.append(row)
+                df = pd.DataFrame(rows)
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                df.set_index('timestamp', inplace=True)
+                df.sort_index(inplace=True)
                 return df
 
-        quotes = prices['data'][list(prices['data'].keys())[0]]['quotes']
-        df = pd.DataFrame(quotes)
-        df['Date'] = pd.to_datetime(df['timestamp'])
-        df.set_index('Date', inplace=True)
-
-        for quote in df['quote'].values:
-            usd_data = quote['USD']
-            for key in ['open', 'high', 'low', 'close', 'volume']:
-                df.loc[df.index[df['quote'] == quote], key] = usd_data.get(key, 0)
-
-        df = df.drop('quote', axis=1)
-        numeric_cols = ['open', 'close', 'high', 'low', 'volume']
-        for col in numeric_cols:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-
-        df.sort_index(inplace=True)
-        return df
-
+        raise ValueError("Unsupported price data format")
     except Exception as e:
-        logging.error(f"Error converting prices to DataFrame: {e}")
-        raise
+        raise Exception(f"Error converting prices to DataFrame: {str(e)}")
 
 
-def get_price_data(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
-    prices = get_prices(symbol, start_date, end_date)
-    return prices_to_df(prices)
-
-
-def get_market_data(symbol: str) -> dict:
-    client = CMCClient()
-    params = {
-        'symbol': symbol,
-        'convert': 'USD'
-    }
-
-    return client._make_request(
-        'cryptocurrency/quotes/latest',
-        params=params
-    )
-
-
-def get_financial_metrics(symbol: str) -> dict:
-    client = CMCClient()
-    params = {
-        'symbol': symbol
-    }
-
-    return client._make_request(
-        'cryptocurrency/info',
-        params=params
-    )
-
-
-def calculate_confidence_level(signals):
-    sma_diff_prev = abs(signals["sma_5_prev"] - signals["sma_20_prev"])
-    sma_diff_curr = abs(signals["sma_5_curr"] - signals["sma_20_curr"])
-    diff_change = sma_diff_curr - sma_diff_prev
-    confidence = min(max(diff_change / signals["current_price"], 0), 1)
-    return confidence
-
-
-def calculate_macd(prices_df):
-    ema_12 = prices_df["close"].ewm(span=12, adjust=False).mean()
-    ema_26 = prices_df["close"].ewm(span=26, adjust=False).mean()
-    macd_line = ema_12 - ema_26
-    signal_line = macd_line.ewm(span=9, adjust=False).mean()
-    return macd_line, signal_line
-
-
-def calculate_rsi(prices_df, period=14):
-    delta = prices_df["close"].diff()
-    gain = (delta.where(delta > 0, 0)).fillna(0)
-    loss = (-delta.where(delta < 0, 0)).fillna(0)
-    avg_gain = gain.rolling(window=period).mean()
-    avg_loss = loss.rolling(window=period).mean()
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
-
-
-def calculate_bollinger_bands(prices_df, window=20):
-    sma = prices_df["close"].rolling(window).mean()
-    std_dev = prices_df["close"].rolling(window).std()
-    upper_band = sma + (std_dev * 2)
-    lower_band = sma - (std_dev * 2)
-    return upper_band, lower_band
-
-
-def calculate_obv(prices_df):
-    obv = [0]
-    for i in range(1, len(prices_df)):
-        if prices_df["close"].iloc[i] > prices_df["close"].iloc[i - 1]:
-            obv.append(obv[-1] + prices_df["volume"].iloc[i])
-        elif prices_df["close"].iloc[i] < prices_df["close"].iloc[i - 1]:
-            obv.append(obv[-1] - prices_df["volume"].iloc[i])
+async def get_supported_cryptocurrencies() -> List[Dict[str, str]]:
+    """Get list of supported cryptocurrencies."""
+    try:
+        if os.getenv('COINMARKETCAP_API_KEY'):
+            provider = CryptoMarketProvider()
         else:
-            obv.append(obv[-1])
-    prices_df["OBV"] = obv
-    return prices_df["OBV"]
+            logging.info("Using mock provider for cryptocurrency list")
+            provider = MockCryptoProvider()
+
+        cryptos = await provider.get_supported_cryptocurrencies()
+        return [
+            {"symbol": symbol, "name": name}
+            for symbol, name in cryptos.items()
+        ]
+    except Exception as e:
+        raise Exception(f"Failed to get supported cryptocurrencies: {str(e)}")
+
+
+def calculate_confidence_level(df: pd.DataFrame) -> float:
+    """Calculate confidence level based on technical indicators."""
+    try:
+        rsi = calculate_rsi(df)
+        macd_line, signal_line = calculate_macd(df)
+        return float(rsi.iloc[-1])
+    except Exception as e:
+        raise Exception(f"Error calculating confidence level: {str(e)}")
+
+
+def calculate_macd(df: pd.DataFrame, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9) -> Tuple[pd.Series, pd.Series]:
+    """Calculate MACD (Moving Average Convergence Divergence)."""
+    try:
+        fast_ema = df['close'].ewm(span=fast_period, adjust=False).mean()
+        slow_ema = df['close'].ewm(span=slow_period, adjust=False).mean()
+        macd_line = fast_ema - slow_ema
+        signal_line = macd_line.ewm(span=signal_period, adjust=False).mean()
+        return macd_line, signal_line
+    except Exception as e:
+        raise Exception(f"Error calculating MACD: {str(e)}")
+
+
+def calculate_rsi(df: pd.DataFrame, periods: int = 14) -> pd.Series:
+    """Calculate RSI (Relative Strength Index)."""
+    try:
+        close_delta = df['close'].diff()
+        gains = close_delta.where(close_delta > 0, 0.0)
+        losses = -close_delta.where(close_delta < 0, 0.0)
+        avg_gains = gains.rolling(window=periods, min_periods=1).mean()
+        avg_losses = losses.rolling(window=periods, min_periods=1).mean()
+        rs = avg_gains / avg_losses
+        rsi = 100.0 - (100.0 / (1.0 + rs))
+        return rsi.fillna(50.0)
+    except Exception as e:
+        raise Exception(f"Error calculating RSI: {str(e)}")
+
+
+def calculate_bollinger_bands(df: pd.DataFrame, window: int = 20) -> Tuple[pd.Series, pd.Series]:
+    """Calculate Bollinger Bands."""
+    try:
+        sma = df['close'].rolling(window=window).mean()
+        std = df['close'].rolling(window=window).std()
+        upper_band = sma + (std * 2)
+        lower_band = sma - (std * 2)
+        return upper_band.fillna(method='bfill'), lower_band.fillna(method='bfill')
+    except Exception as e:
+        raise Exception(f"Error calculating Bollinger Bands: {str(e)}")
+
+
+def calculate_obv(df: pd.DataFrame) -> pd.Series:
+    """Calculate On-Balance Volume (OBV)."""
+    try:
+        obv = pd.Series(index=df.index, dtype=float)
+        obv.iloc[0] = 0
+        for i in range(1, len(df)):
+            if df['close'].iloc[i] > df['close'].iloc[i-1]:
+                obv.iloc[i] = obv.iloc[i-1] + df['volume'].iloc[i]
+            elif df['close'].iloc[i] < df['close'].iloc[i-1]:
+                obv.iloc[i] = obv.iloc[i-1] - df['volume'].iloc[i]
+            else:
+                obv.iloc[i] = obv.iloc[i-1]
+        return obv
+    except Exception as e:
+        raise Exception(f"Error calculating OBV: {str(e)}")
