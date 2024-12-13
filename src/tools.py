@@ -89,8 +89,8 @@ async def get_price_data(symbol: str, start_date: str, end_date: str) -> pd.Data
 def prices_to_df(price_data: Dict[str, Any]) -> pd.DataFrame:
     """Convert price data to DataFrame format."""
     try:
-        if not price_data:
-            return pd.DataFrame()
+        if not isinstance(price_data, dict):
+            raise ValueError("Price data must be a dictionary")
 
         if isinstance(price_data, dict) and 'price_data' in price_data:
             df = price_data['price_data']
