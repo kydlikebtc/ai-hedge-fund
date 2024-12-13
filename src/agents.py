@@ -28,21 +28,21 @@ def market_data_agent(state: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         # Get market data
-        market_data = get_market_data(data["ticker"])
-        # Get historical price data
-        price_data = get_price_data(
-            ticker=data["ticker"],
-            start_date=data["start_date"],
-            end_date=data["end_date"]
-        )
+        symbol = data.get("ticker")
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
 
-        # Create agent and analyze
-        agent = MarketDataAgent()
-        analysis = agent.analyze(price_data, market_data, show_reasoning)
+        market_data = get_market_data(symbol)
+        price_data = get_price_data(symbol, start_date, end_date)
 
-        # Create message
+        if show_reasoning:
+            show_agent_reasoning({
+                "market_data": market_data,
+                "price_data": price_data
+            }, "market_data_agent")
+
         message = HumanMessage(
-            content=analysis,
+            content="Market data analysis complete",
             name="market_data_agent"
         )
 
