@@ -40,17 +40,14 @@ def get_price_data(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
 def prices_to_df(price_data: Dict[str, Any]) -> pd.DataFrame:
     """Convert price data to DataFrame format."""
     try:
-        # Handle case where price_data is empty or None
         if not price_data:
             return pd.DataFrame()
 
-        # Case 1: Data is already a DataFrame under 'price_data' key
         if isinstance(price_data, dict) and 'price_data' in price_data:
             df = price_data['price_data']
             if isinstance(df, pd.DataFrame):
                 return df.copy()
 
-        # Case 2: Raw market data format
         if isinstance(price_data, dict) and 'data' in price_data:
             symbol_data = list(price_data['data'].values())[0]
             if 'quotes' in symbol_data:
@@ -102,27 +99,29 @@ def calculate_confidence_level(df: pd.DataFrame) -> float:
         raise Exception(f"Error calculating confidence level: {str(e)}")
 
 
-def calculate_macd(df: pd.DataFrame) -> Tuple[pd.Series, pd.Series]:
-    """Calculate MACD indicator."""
+def calculate_macd(df: pd.DataFrame, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9) -> Tuple[pd.Series, pd.Series]:
+    """Calculate MACD (Moving Average Convergence Divergence)."""
     try:
-        exp1 = df['close'].ewm(span=12, adjust=False).mean()
-        exp2 = df['close'].ewm(span=26, adjust=False).mean()
-        macd_line = exp1 - exp2
-        signal_line = macd_line.ewm(span=9, adjust=False).mean()
+        fast_ema = df['close'].ewm(span=fast_period, adjust=False).mean()
+        slow_ema = df['close'].ewm(span=slow_period, adjust=False).mean()
+        macd_line = fast_ema - slow_ema
+        signal_line = macd_line.ewm(span=signal_period, adjust=False).mean()
         return macd_line, signal_line
     except Exception as e:
         raise Exception(f"Error calculating MACD: {str(e)}")
 
 
 def calculate_rsi(df: pd.DataFrame, periods: int = 14) -> pd.Series:
-    """Calculate RSI indicator."""
+    """Calculate RSI (Relative Strength Index)."""
     try:
         close_delta = df['close'].diff()
-        gain = (close_delta.where(close_delta > 0, 0)).rolling(window=periods).mean()
-        loss = (-close_delta.where(close_delta < 0, 0)).rolling(window=periods).mean()
-        rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
-        return rsi.fillna(50)
+        gains = close_delta.where(close_delta > 0, 0.0)
+        losses = -close_delta.where(close_delta < 0, 0.0)
+        avg_gains = gains.rolling(window=periods, min_periods=1).mean()
+        avg_losses = losses.rolling(window=periods, min_periods=1).mean()
+        rs = avg_gains / avg_losses
+        rsi = 100.0 - (100.0 / (1.0 + rs))
+        return rsi.fillna(50.0)
     except Exception as e:
         raise Exception(f"Error calculating RSI: {str(e)}")
 

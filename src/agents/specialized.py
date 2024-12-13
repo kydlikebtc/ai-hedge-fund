@@ -63,7 +63,7 @@ class TechnicalAgent(BaseAgent):
             macd_line, signal_line = calculate_macd(df)
             upper_band, lower_band = calculate_bollinger_bands(df)
 
-            # Get latest values for comparison
+            # Get latest values and ensure they're scalar
             latest_rsi = float(rsi.iloc[-1])
             latest_macd = float(macd_line.iloc[-1])
             latest_signal = float(signal_line.iloc[-1])
@@ -71,11 +71,33 @@ class TechnicalAgent(BaseAgent):
             latest_upper = float(upper_band.iloc[-1])
             latest_lower = float(lower_band.iloc[-1])
 
-            # Generate analysis
+            # Generate analysis based on technical indicators
+            analysis = []
+
+            # RSI Analysis
+            if latest_rsi > 70:
+                rsi_signal = "Overbought"
+            elif latest_rsi < 30:
+                rsi_signal = "Oversold"
+            else:
+                rsi_signal = "Neutral"
+
+            # MACD Analysis
+            macd_signal = "Bullish" if latest_macd > latest_signal else "Bearish"
+
+            # Bollinger Bands Analysis
+            if latest_close > latest_upper:
+                bb_signal = "Overbought"
+            elif latest_close < latest_lower:
+                bb_signal = "Oversold"
+            else:
+                bb_signal = "Neutral"
+
             analysis = (
-                f"RSI (14): {latest_rsi:.2f}\n"
-                f"MACD Signal: {'Bullish' if latest_macd > latest_signal else 'Bearish'}\n"
-                f"Bollinger Bands: {'Overbought' if latest_close > latest_upper else 'Oversold' if latest_close < latest_lower else 'Neutral'}"
+                f"Technical Analysis:\n"
+                f"RSI (14): {latest_rsi:.2f} - {rsi_signal}\n"
+                f"MACD Signal: {macd_signal} (MACD: {latest_macd:.2f}, Signal: {latest_signal:.2f})\n"
+                f"Bollinger Bands: {bb_signal} (Price: {latest_close:.2f}, Upper: {latest_upper:.2f}, Lower: {latest_lower:.2f})"
             )
             return analysis
         except Exception as e:
