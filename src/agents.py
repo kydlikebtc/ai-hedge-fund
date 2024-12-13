@@ -22,8 +22,9 @@ from src.agents.specialized import (
 
 def market_data_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """Analyzes current market data and trends."""
-    data = state["data"]
-    show_reasoning = state["metadata"]["show_reasoning"]
+    data = state.get("data", {})
+    metadata = state.get("metadata", {})
+    show_reasoning = metadata.get("show_reasoning", False)
 
     try:
         # Get market data
@@ -51,19 +52,21 @@ def market_data_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                 **data,
                 "market_data": market_data,
                 "price_data": price_data
-            }
+            },
+            "metadata": metadata
         }
     except Exception as e:
         message = HumanMessage(
             content=f"Error in market data analysis: {str(e)}",
             name="market_data_agent"
         )
-        return {"messages": [message], "data": data}
+        return {"messages": [message], "data": data, "metadata": metadata}
 
 def sentiment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """Analyzes market sentiment."""
-    data = state["data"]
-    show_reasoning = state["metadata"]["show_reasoning"]
+    data = state.get("data", {})
+    metadata = state.get("metadata", {})
+    show_reasoning = metadata.get("show_reasoning", False)
 
     try:
         agent = SentimentAgent()
@@ -78,18 +81,27 @@ def sentiment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             name="sentiment_agent"
         )
 
-        return {"messages": state["messages"] + [message], "data": data}
+        return {
+            "messages": state.get("messages", []) + [message],
+            "data": data,
+            "metadata": metadata
+        }
     except Exception as e:
         message = HumanMessage(
             content=f"Error in sentiment analysis: {str(e)}",
             name="sentiment_agent"
         )
-        return {"messages": state["messages"] + [message], "data": data}
+        return {
+            "messages": state.get("messages", []) + [message],
+            "data": data,
+            "metadata": metadata
+        }
 
 def technical_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """Analyzes technical indicators."""
-    data = state["data"]
-    show_reasoning = state["metadata"]["show_reasoning"]
+    data = state.get("data", {})
+    metadata = state.get("metadata", {})
+    show_reasoning = metadata.get("show_reasoning", False)
 
     try:
         agent = TechnicalAgent()
@@ -104,18 +116,27 @@ def technical_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             name="technical_agent"
         )
 
-        return {"messages": state["messages"] + [message], "data": data}
+        return {
+            "messages": state.get("messages", []) + [message],
+            "data": data,
+            "metadata": metadata
+        }
     except Exception as e:
         message = HumanMessage(
             content=f"Error in technical analysis: {str(e)}",
             name="technical_agent"
         )
-        return {"messages": state["messages"] + [message], "data": data}
+        return {
+            "messages": state.get("messages", []) + [message],
+            "data": data,
+            "metadata": metadata
+        }
 
 def risk_management_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """Analyzes market risks."""
-    data = state["data"]
-    show_reasoning = state["metadata"]["show_reasoning"]
+    data = state.get("data", {})
+    metadata = state.get("metadata", {})
+    show_reasoning = metadata.get("show_reasoning", False)
 
     try:
         agent = RiskManagementAgent()
@@ -130,18 +151,27 @@ def risk_management_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             name="risk_management_agent"
         )
 
-        return {"messages": state["messages"] + [message], "data": data}
+        return {
+            "messages": state.get("messages", []) + [message],
+            "data": data,
+            "metadata": metadata
+        }
     except Exception as e:
         message = HumanMessage(
             content=f"Error in risk analysis: {str(e)}",
             name="risk_management_agent"
         )
-        return {"messages": state["messages"] + [message], "data": data}
+        return {
+            "messages": state.get("messages", []) + [message],
+            "data": data,
+            "metadata": metadata
+        }
 
 def portfolio_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """Provides portfolio recommendations."""
-    data = state["data"]
-    show_reasoning = state["metadata"]["show_reasoning"]
+    data = state.get("data", {})
+    metadata = state.get("metadata", {})
+    show_reasoning = metadata.get("show_reasoning", False)
 
     try:
         agent = PortfolioAgent()
@@ -156,14 +186,21 @@ def portfolio_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             name="portfolio_agent"
         )
 
-
-        return {"messages": state["messages"] + [message], "data": data}
+        return {
+            "messages": state.get("messages", []) + [message],
+            "data": data,
+            "metadata": metadata
+        }
     except Exception as e:
         message = HumanMessage(
             content=f"Error in portfolio analysis: {str(e)}",
             name="portfolio_agent"
         )
-        return {"messages": state["messages"] + [message], "data": data}
+        return {
+            "messages": state.get("messages", []) + [message],
+            "data": data,
+            "metadata": metadata
+        }
 
 def show_agent_reasoning(output: Any, agent_name: str) -> None:
     """Display agent reasoning if show_reasoning is True."""
