@@ -2,6 +2,8 @@
 Cryptocurrency market analysis agents and workflow.
 """
 
+import os
+import asyncio
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from langgraph.graph import StateGraph, END
@@ -20,7 +22,7 @@ from src.agents.specialized import (
     PortfolioAgent
 )
 
-def market_data_agent(state: Dict[str, Any]) -> Dict[str, Any]:
+async def market_data_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """Analyzes current market data and trends."""
     data = state.get("data", {})
     metadata = state.get("metadata", {})
@@ -32,8 +34,8 @@ def market_data_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         start_date = data.get("start_date")
         end_date = data.get("end_date")
 
-        market_data = get_market_data(symbol)
-        price_data = get_price_data(symbol, start_date, end_date)
+        market_data = await get_market_data(symbol)
+        price_data = await get_price_data(symbol, start_date, end_date)
 
         if show_reasoning:
             show_agent_reasoning({
@@ -62,7 +64,7 @@ def market_data_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         )
         return {"messages": [message], "data": data, "metadata": metadata}
 
-def sentiment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
+async def sentiment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """Analyzes market sentiment."""
     data = state.get("data", {})
     metadata = state.get("metadata", {})
@@ -70,7 +72,7 @@ def sentiment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         agent = SentimentAgent()
-        analysis = agent.analyze(
+        analysis = await agent.analyze(
             data.get("price_data"),
             data.get("market_data"),
             show_reasoning
@@ -97,7 +99,7 @@ def sentiment_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             "metadata": metadata
         }
 
-def technical_agent(state: Dict[str, Any]) -> Dict[str, Any]:
+async def technical_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """Analyzes technical indicators."""
     data = state.get("data", {})
     metadata = state.get("metadata", {})
@@ -105,7 +107,7 @@ def technical_agent(state: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         agent = TechnicalAgent()
-        analysis = agent.analyze(
+        analysis = await agent.analyze(
             data.get("price_data"),
             data.get("market_data"),
             show_reasoning
@@ -132,7 +134,7 @@ def technical_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             "metadata": metadata
         }
 
-def risk_management_agent(state: Dict[str, Any]) -> Dict[str, Any]:
+async def risk_management_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """Analyzes market risks."""
     data = state.get("data", {})
     metadata = state.get("metadata", {})
@@ -140,7 +142,7 @@ def risk_management_agent(state: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         agent = RiskManagementAgent()
-        analysis = agent.analyze(
+        analysis = await agent.analyze(
             data.get("price_data"),
             data.get("market_data"),
             show_reasoning
@@ -167,7 +169,7 @@ def risk_management_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             "metadata": metadata
         }
 
-def portfolio_agent(state: Dict[str, Any]) -> Dict[str, Any]:
+async def portfolio_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """Provides portfolio recommendations."""
     data = state.get("data", {})
     metadata = state.get("metadata", {})
@@ -175,7 +177,7 @@ def portfolio_agent(state: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         agent = PortfolioAgent()
-        analysis = agent.analyze(
+        analysis = await agent.analyze(
             data.get("price_data"),
             data.get("market_data"),
             show_reasoning
@@ -208,7 +210,59 @@ def show_agent_reasoning(output: Any, agent_name: str) -> None:
     print(output)
     print('=' * 50)
 
-def run_hedge_fund(
+async def analyze_market(
+    symbol: str,
+    market_data: Dict[str, Any],
+    price_data: Dict[str, Any],
+    show_reasoning: bool = False
+) -> Dict[str, str]:
+    """
+    Run market analysis using all specialized agents.
+
+    Args:
+        symbol: Cryptocurrency symbol
+        market_data: Current market data
+        price_data: Historical price data
+        show_reasoning: Whether to show detailed agent reasoning
+
+    Returns:
+        Dict containing analysis results from each agent
+    """
+    try:
+        # Initialize agents
+        market_agent = MarketDataAgent()
+        sentiment_agent = SentimentAgent()
+        technical_agent = TechnicalAgent()
+        risk_agent = RiskManagementAgent()
+        portfolio_agent = PortfolioAgent()
+
+        # Run analysis in parallel
+        results = await asyncio.gather(
+            market_agent.analyze(price_data, market_data, show_reasoning),
+            sentiment_agent.analyze(price_data, market_data, show_reasoning),
+            technical_agent.analyze(price_data, market_data, show_reasoning),
+            risk_agent.analyze(price_data, market_data, show_reasoning),
+            portfolio_agent.analyze(price_data, market_data, show_reasoning)
+        )
+
+        # Map results to agent names
+        return {
+            "market_data_agent": results[0],
+            "sentiment_agent": results[1],
+            "technical_agent": results[2],
+            "risk_management_agent": results[3],
+            "portfolio_agent": results[4]
+        }
+    except Exception as e:
+        return {
+            "market_data_agent": f"Error in market analysis: {str(e)}",
+            "sentiment_agent": "Analysis failed",
+            "technical_agent": "Analysis failed",
+            "risk_management_agent": "Analysis failed",
+            "portfolio_agent": "Analysis failed"
+        }
+
+async def run_hedge_fund(
     ticker: str,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -240,7 +294,7 @@ def run_hedge_fund(
         ).strftime("%Y-%m-%d")
 
     # Initialize workflow
-    workflow = StateGraph(Dict[str, Any])  # Use Dict type instead of name
+    workflow = StateGraph(Dict[str, Any])
 
     # Add nodes
     workflow.add_node("market_data", market_data_agent)
@@ -263,7 +317,7 @@ def run_hedge_fund(
     app = workflow.compile()
 
     # Run analysis
-    final_state = app.invoke({
+    final_state = await app.ainvoke({
         "data": {
             "ticker": ticker,
             "start_date": start_date,
@@ -288,12 +342,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    result = run_hedge_fund(
+    result = asyncio.run(run_hedge_fund(
         ticker=args.ticker,
         start_date=args.start_date,
         end_date=args.end_date,
         show_reasoning=args.show_reasoning
-    )
+    ))
 
     # Print results
     print("\nAnalysis Results:")
