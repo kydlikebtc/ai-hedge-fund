@@ -83,11 +83,24 @@ class CryptoMarketProvider(BaseProvider):
                 self.logger.error(f"Date validation failed: {e}")
                 raise
 
+            # Validate cryptocurrency symbol
+            from src.tools import CMCClient
+            client = CMCClient()
+            try:
+                available_cryptos = client.get_available_cryptocurrencies()
+                valid_symbols = [crypto['symbol'] for crypto in available_cryptos['data']]
+                if symbol.upper() not in valid_symbols:
+                    raise ValueError(f"Invalid cryptocurrency symbol: {symbol}. Please use one of the supported symbols from CoinMarketCap.")
+            except Exception as e:
+                self.logger.error(f"Symbol validation failed: {e}")
+                raise ValueError(f"Failed to validate cryptocurrency symbol: {str(e)}")
+
             self.logger.info(f"Fetching {symbol} cryptocurrency data from {start_date} to {end_date}")
 
             # Initialize CMC client for data fetching
-            from src.tools import CMCClient
-            client = CMCClient()
+            # Note: We reuse the client from symbol validation
+            if not client:
+                client = CMCClient()
 
             # Get historical data with adjusted end date
             try:
