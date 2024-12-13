@@ -63,17 +63,18 @@ class TechnicalAgent(BaseAgent):
             macd_line, signal_line = calculate_macd(df)
             upper_band, lower_band = calculate_bollinger_bands(df)
 
-            # Get latest values
-            latest_rsi = rsi.iloc[-1]
-            latest_macd = macd_line.iloc[-1] > signal_line.iloc[-1]
-            latest_close = df['close'].iloc[-1]
-            latest_upper = upper_band.iloc[-1]
-            latest_lower = lower_band.iloc[-1]
+            # Get latest values for comparison
+            latest_rsi = float(rsi.iloc[-1])
+            latest_macd = float(macd_line.iloc[-1])
+            latest_signal = float(signal_line.iloc[-1])
+            latest_close = float(df['close'].iloc[-1])
+            latest_upper = float(upper_band.iloc[-1])
+            latest_lower = float(lower_band.iloc[-1])
 
             # Generate analysis
             analysis = (
                 f"RSI (14): {latest_rsi:.2f}\n"
-                f"MACD Signal: {'Bullish' if latest_macd else 'Bearish'}\n"
+                f"MACD Signal: {'Bullish' if latest_macd > latest_signal else 'Bearish'}\n"
                 f"Bollinger Bands: {'Overbought' if latest_close > latest_upper else 'Oversold' if latest_close < latest_lower else 'Neutral'}"
             )
             return analysis
