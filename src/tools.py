@@ -20,6 +20,8 @@ class CMCClient:
             'X-CMC_PRO_API_KEY': self.api_key,
             'Accept': 'application/json'
         })
+        self._cache = {}
+        self._cache_ttl = 3600  # 1 hour TTL
 
     def _handle_rate_limit(self, response: requests.Response) -> bool:
         if response.status_code == 429:
@@ -29,6 +31,15 @@ class CMCClient:
         return False
 
     def _make_request(self, endpoint: str, params: dict = None) -> dict:
+        # Check cache first
+        cache_key = f"{endpoint}:{str(params)}"
+        if cache_key in self._cache:
+            cache_entry = self._cache[cache_key]
+            if time.time() - cache_entry['timestamp'] < self._cache_ttl:
+                return cache_entry['data']
+            else:
+                del self._cache[cache_key]
+
         url = f"{self.base_url}/{endpoint}"
         while True:
             response = self.session.get(url, params=params)
@@ -36,9 +47,25 @@ class CMCClient:
                 break
 
         if response.status_code == 200:
-            return response.json()
+            data = response.json()
+            # Cache the response
+            self._cache[cache_key] = {
+                'data': data,
+                'timestamp': time.time()
+            }
+            return data
         else:
             raise Exception(f"Error fetching data: {response.status_code} - {response.text}")
+
+    def get_available_cryptocurrencies(self) -> dict:
+        try:
+            return self._make_request(
+                'cryptocurrency/map',
+                params={'listing_status': 'active'}
+            )
+        except Exception as e:
+            logging.error(f"Error fetching cryptocurrency list: {str(e)}")
+            raise
 
 
 def get_prices(symbol: str, start_date: str, end_date: str) -> dict:
