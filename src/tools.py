@@ -13,10 +13,8 @@ class CMCClient:
     """CoinMarketCap API client."""
 
     def __init__(self):
-        self.api_key = os.getenv('COINMARKETCAP_API_KEY')
-        if not self.api_key:
-            raise ValueError("COINMARKETCAP_API_KEY environment variable not set")
-        self.base_url = "https://pro-api.coinmarketcap.com/v1"
+        self.api_key = "fffa65cf-bf4f-4405-9f95-89d3109511cb"  # Set API key directly
+        self.base_url = "https://pro-api.coinmarketcap.com/v2"
         self.headers = {
             'X-CMC_PRO_API_KEY': self.api_key,
             'Accept': 'application/json'
@@ -40,8 +38,7 @@ class CMCClient:
     async def get_historical_prices(self, symbol: str, start_date: str, end_date: str) -> Dict[str, Any]:
         """Get historical price data for a cryptocurrency."""
         try:
-            # Try OHLCV endpoint first (preferred for historical data)
-            endpoint = "cryptocurrency/ohlcv/historical"
+            endpoint = "cryptocurrency/quotes/historical"
             start = datetime.strptime(start_date, "%Y-%m-%d")
             end = datetime.strptime(end_date, "%Y-%m-%d")
             params = {
@@ -49,17 +46,11 @@ class CMCClient:
                 'time_start': start.strftime("%Y-%m-%dT00:00:00Z"),
                 'time_end': end.strftime("%Y-%m-%dT23:59:59Z"),
                 'convert': 'USD',
-                'interval': '1d'  # Daily intervals
+                'interval': 'daily',
+                'count': '30',
+                'skip_invalid': 'true'
             }
-            try:
-                return await self._make_request(endpoint, params)
-            except Exception as e:
-                if "subscription plan doesn't support this endpoint" in str(e):
-                    # Fallback to quotes endpoint if OHLCV is not available
-                    logging.warning(f"OHLCV endpoint not available, falling back to quotes endpoint for {symbol}")
-                    endpoint = "cryptocurrency/quotes/historical"
-                    return await self._make_request(endpoint, params)
-                raise
+            return await self._make_request(endpoint, params)
         except Exception as e:
             logging.error(f"Failed to get historical prices for {symbol}: {str(e)}")
             raise
@@ -120,11 +111,12 @@ def prices_to_df(price_data: Dict[str, Any]) -> pd.DataFrame:
                     usd_data = quote['quote']['USD']
                     row = {
                         'timestamp': quote['timestamp'],
-                        'open': usd_data['open'],
-                        'high': usd_data['high'],
-                        'low': usd_data['low'],
+                        'open': usd_data.get('open', usd_data['close']),
+                        'high': usd_data.get('high', usd_data['close']),
+                        'low': usd_data.get('low', usd_data['close']),
                         'close': usd_data['close'],
-                        'volume': usd_data['volume']
+                        'volume': usd_data['volume'],
+                        'market_cap': usd_data.get('market_cap', 0)
                     }
                     rows.append(row)
                 df = pd.DataFrame(rows)
