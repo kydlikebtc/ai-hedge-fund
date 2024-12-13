@@ -1,6 +1,7 @@
 import os
 import logging
 import pandas as pd
+import aiohttp
 from datetime import datetime
 from typing import Dict, Any, List, Tuple
 
@@ -8,7 +9,55 @@ from src.providers.mock_provider import MockCryptoProvider
 from src.providers.crypto_market_provider import CryptoMarketProvider
 
 
-def get_market_data(symbol: str) -> Dict[str, Any]:
+class CMCClient:
+    """CoinMarketCap API client."""
+
+    def __init__(self):
+        self.api_key = os.getenv('COINMARKETCAP_API_KEY')
+        if not self.api_key:
+            raise ValueError("COINMARKETCAP_API_KEY environment variable not set")
+        self.base_url = "https://pro-api.coinmarketcap.com/v1"
+        self.headers = {
+            'X-CMC_PRO_API_KEY': self.api_key,
+            'Accept': 'application/json'
+        }
+
+    async def _make_request(self, endpoint: str, params: Dict = None) -> Dict[str, Any]:
+        """Make an async request to the CoinMarketCap API."""
+        url = f"{self.base_url}/{endpoint}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=self.headers, params=params) as response:
+                if response.status != 200:
+                    raise Exception(f"API request failed: {await response.text()}")
+                return await response.json()
+
+    async def get_market_data(self, symbol: str) -> Dict[str, Any]:
+        """Get current market data for a cryptocurrency."""
+        endpoint = "cryptocurrency/quotes/latest"
+        params = {'symbol': symbol, 'convert': 'USD'}
+        return await self._make_request(endpoint, params)
+
+    async def get_historical_prices(self, symbol: str, start_date: str, end_date: str) -> Dict[str, Any]:
+        """Get historical price data for a cryptocurrency."""
+        endpoint = "cryptocurrency/quotes/historical"
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+        params = {
+            'symbol': symbol,
+            'time_start': start.strftime("%Y-%m-%dT00:00:00Z"),
+            'time_end': end.strftime("%Y-%m-%dT23:59:59Z"),
+            'convert': 'USD'
+        }
+        return await self._make_request(endpoint, params)
+
+    async def get_available_cryptocurrencies(self) -> Dict[str, Any]:
+        """Get list of available cryptocurrencies."""
+        endpoint = "cryptocurrency/map"
+        params = {'limit': 100, 'sort': 'cmc_rank'}
+        return await self._make_request(endpoint, params)
+
+
+async def get_market_data(symbol: str) -> Dict[str, Any]:
     """Get current market data for a cryptocurrency."""
     try:
         if os.getenv('COINMARKETCAP_API_KEY'):
@@ -17,12 +66,12 @@ def get_market_data(symbol: str) -> Dict[str, Any]:
             logging.info("Using mock provider for market data")
             provider = MockCryptoProvider()
 
-        return provider.get_market_data(symbol)
+        return await provider.get_market_data(symbol)
     except Exception as e:
         raise Exception(f"Failed to get market data: {str(e)}")
 
 
-def get_price_data(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
+async def get_price_data(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
     """Get historical price data for a cryptocurrency."""
     try:
         if os.getenv('COINMARKETCAP_API_KEY'):
@@ -31,7 +80,7 @@ def get_price_data(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
             logging.info("Using mock provider for price data")
             provider = MockCryptoProvider()
 
-        prices = provider.get_price_data(symbol, start_date, end_date)
+        prices = await provider.get_price_data(symbol, start_date, end_date)
         return prices_to_df(prices)
     except Exception as e:
         raise Exception(f"Failed to get price data: {str(e)}")
@@ -75,7 +124,7 @@ def prices_to_df(price_data: Dict[str, Any]) -> pd.DataFrame:
         raise Exception(f"Error converting prices to DataFrame: {str(e)}")
 
 
-def get_supported_cryptocurrencies() -> Dict[str, str]:
+async def get_supported_cryptocurrencies() -> List[Dict[str, str]]:
     """Get list of supported cryptocurrencies."""
     try:
         if os.getenv('COINMARKETCAP_API_KEY'):
@@ -84,7 +133,11 @@ def get_supported_cryptocurrencies() -> Dict[str, str]:
             logging.info("Using mock provider for cryptocurrency list")
             provider = MockCryptoProvider()
 
-        return provider.get_supported_cryptocurrencies()
+        cryptos = await provider.get_supported_cryptocurrencies()
+        return [
+            {"symbol": symbol, "name": name}
+            for symbol, name in cryptos.items()
+        ]
     except Exception as e:
         raise Exception(f"Failed to get supported cryptocurrencies: {str(e)}")
 

@@ -26,7 +26,7 @@ class MockCryptoProvider:
             'XRP': 0.5
         }
 
-    def get_market_data(self, symbol: str) -> Dict[str, Any]:
+    async def get_market_data(self, symbol: str) -> Dict[str, Any]:
         """Get current market data for a cryptocurrency."""
         if symbol not in self.supported_cryptos:
             raise ValueError(f"Unsupported cryptocurrency: {symbol}")
@@ -57,7 +57,7 @@ class MockCryptoProvider:
             }
         }
 
-    def get_price_data(self, symbol: str, start_date: str, end_date: str) -> Dict[str, Any]:
+    async def get_price_data(self, symbol: str, start_date: str, end_date: str) -> Dict[str, Any]:
         """Get historical price data for a cryptocurrency."""
         if symbol not in self.supported_cryptos:
             raise ValueError(f"Unsupported cryptocurrency: {symbol}")
@@ -98,6 +98,6 @@ class MockCryptoProvider:
             }
         }
 
-    def get_supported_cryptocurrencies(self) -> Dict[str, str]:
+    async def get_supported_cryptocurrencies(self) -> Dict[str, str]:
         """Get list of supported cryptocurrencies."""
         return self.supported_cryptos
