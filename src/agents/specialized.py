@@ -14,7 +14,7 @@ from ..tools import (
 class MarketDataAgent(BaseAgent):
     """Analyzes current market data and trends for any cryptocurrency."""
 
-    def analyze(self, price_data, market_data, show_reasoning=False):
+    async def analyze(self, price_data, market_data, show_reasoning=False):
         try:
             if not market_data or 'data' not in market_data:
                 return "Error: No market data available"
@@ -35,7 +35,7 @@ class MarketDataAgent(BaseAgent):
 class SentimentAgent(BaseAgent):
     """Analyzes market sentiment for any cryptocurrency."""
 
-    def analyze(self, price_data, market_data, show_reasoning=False):
+    async def analyze(self, price_data, market_data, show_reasoning=False):
         try:
             quote = list(market_data['data'].values())[0]['quote']['USD']
             sentiment = "bullish" if quote['percent_change_24h'] > 0 else "bearish"
@@ -52,7 +52,7 @@ class SentimentAgent(BaseAgent):
 class TechnicalAgent(BaseAgent):
     """Analyzes technical indicators for any cryptocurrency."""
 
-    def analyze(self, price_data, market_data, show_reasoning=False):
+    async def analyze(self, price_data, market_data, show_reasoning=False):
         try:
             df = prices_to_df(price_data)
             if df.empty:
@@ -106,7 +106,7 @@ class TechnicalAgent(BaseAgent):
 class RiskManagementAgent(BaseAgent):
     """Analyzes market risks for any cryptocurrency."""
 
-    def analyze(self, price_data, market_data, show_reasoning=False):
+    async def analyze(self, price_data, market_data, show_reasoning=False):
         try:
             quote = list(market_data['data'].values())[0]['quote']['USD']
             volatility = abs(quote['percent_change_24h'])
@@ -125,7 +125,7 @@ class RiskManagementAgent(BaseAgent):
 class PortfolioAgent(BaseAgent):
     """Provides portfolio recommendations for any cryptocurrency."""
 
-    def analyze(self, price_data, market_data, show_reasoning=False):
+    async def analyze(self, price_data, market_data, show_reasoning=False):
         try:
             quote = list(market_data['data'].values())[0]['quote']['USD']
             trend = quote['percent_change_24h']

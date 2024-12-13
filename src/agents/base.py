@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional
 class BaseAgent:
     """Base class for all cryptocurrency analysis agents."""
 
-    def analyze(self, price_data, market_data, show_reasoning=False):
+    async def analyze(self, price_data, market_data, show_reasoning=False):
         """
         Analyze cryptocurrency market data and return insights.
 

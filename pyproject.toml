@@ -18,6 +18,8 @@ pandas = "^2.1.0"
 numpy = "^1.24.0"
 python-dotenv = "1.0.0"
 matplotlib = "^3.9.2"
+fastapi = "^0.115.6"
+uvicorn = "^0.32.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
