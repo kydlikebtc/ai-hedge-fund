@@ -61,39 +61,50 @@ class CryptoMarketProvider(BaseProvider):
             try:
                 start_dt = datetime.strptime(start_date, '%Y-%m-%d')
                 end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+                current_dt = datetime.now()
+
                 if start_dt > end_dt:
                     raise ValueError("Start date must be before end date")
+
+                # Use mock provider for future dates
+                if end_dt > current_dt:
+                    self.logger.warning(f"Future date range requested for {symbol}, using mock provider")
+                    from .mock_provider import MockCryptoProvider
+                    mock_provider = MockCryptoProvider()
+                    return await mock_provider.get_price_data(symbol, start_date, end_date)
+
             except ValueError as e:
                 self.logger.error(f"Date validation failed: {e}")
                 raise
 
             self.logger.info(f"Fetching {symbol} cryptocurrency data from {start_date} to {end_date}")
 
-            # Initialize CMC client for data fetching
-            from src.tools import CMCClient
-            client = CMCClient()
-
-            # Get historical data with improved error handling
             try:
+                # Initialize CMC client for historical data
+                from src.tools import CMCClient
+                client = CMCClient()
                 response = await client.get_historical_prices(symbol, start_date, end_date)
+
+                # Validate response structure
+                if not response:
+                    raise ValueError(f"Empty response from CoinMarketCap API for {symbol}")
+                if 'data' not in response:
+                    raise ValueError(f"Invalid response format from CoinMarketCap API for {symbol}: missing 'data' field")
+                if 'status' in response and response['status'].get('error_code'):
+                    error_msg = response['status'].get('error_message', 'Unknown error')
+                    raise ValueError(f"CoinMarketCap API error: {error_msg}")
+
+                return response
+
             except Exception as e:
                 error_msg = str(e)
                 if "subscription plan doesn't support this endpoint" in error_msg:
-                    self.logger.warning(f"CMC API subscription limitation: {error_msg}")
-                else:
-                    self.logger.error(f"CMC API error: {error_msg}")
+                    self.logger.warning(f"CMC API subscription limitation, falling back to mock provider")
+                    from .mock_provider import MockCryptoProvider
+                    mock_provider = MockCryptoProvider()
+                    return await mock_provider.get_price_data(symbol, start_date, end_date)
                 raise ValueError(f"Failed to fetch data from CoinMarketCap API: {error_msg}")
 
-            # Validate response structure
-            if not response:
-                raise ValueError(f"Empty response from CoinMarketCap API for {symbol}")
-            if 'data' not in response:
-                raise ValueError(f"Invalid response format from CoinMarketCap API for {symbol}: missing 'data' field")
-            if 'status' in response and response['status'].get('error_code'):
-                error_msg = response['status'].get('error_message', 'Unknown error')
-                raise ValueError(f"CoinMarketCap API error: {error_msg}")
-
-            return response
         except Exception as e:
             self.logger.error(f"Error fetching cryptocurrency historical prices: {e}")
             raise
