@@ -39,16 +39,30 @@ class CMCClient:
 
     async def get_historical_prices(self, symbol: str, start_date: str, end_date: str) -> Dict[str, Any]:
         """Get historical price data for a cryptocurrency."""
-        endpoint = "cryptocurrency/quotes/historical"
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        end = datetime.strptime(end_date, "%Y-%m-%d")
-        params = {
-            'symbol': symbol,
-            'time_start': start.strftime("%Y-%m-%dT00:00:00Z"),
-            'time_end': end.strftime("%Y-%m-%dT23:59:59Z"),
-            'convert': 'USD'
-        }
-        return await self._make_request(endpoint, params)
+        try:
+            # Try OHLCV endpoint first (preferred for historical data)
+            endpoint = "cryptocurrency/ohlcv/historical"
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            end = datetime.strptime(end_date, "%Y-%m-%d")
+            params = {
+                'symbol': symbol,
+                'time_start': start.strftime("%Y-%m-%dT00:00:00Z"),
+                'time_end': end.strftime("%Y-%m-%dT23:59:59Z"),
+                'convert': 'USD',
+                'interval': '1d'  # Daily intervals
+            }
+            try:
+                return await self._make_request(endpoint, params)
+            except Exception as e:
+                if "subscription plan doesn't support this endpoint" in str(e):
+                    # Fallback to quotes endpoint if OHLCV is not available
+                    logging.warning(f"OHLCV endpoint not available, falling back to quotes endpoint for {symbol}")
+                    endpoint = "cryptocurrency/quotes/historical"
+                    return await self._make_request(endpoint, params)
+                raise
+        except Exception as e:
+            logging.error(f"Failed to get historical prices for {symbol}: {str(e)}")
+            raise
 
     async def get_available_cryptocurrencies(self) -> Dict[str, Any]:
         """Get list of available cryptocurrencies."""

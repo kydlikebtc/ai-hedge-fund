@@ -73,16 +73,25 @@ class CryptoMarketProvider(BaseProvider):
             from src.tools import CMCClient
             client = CMCClient()
 
-            # Get historical data
+            # Get historical data with improved error handling
             try:
                 response = await client.get_historical_prices(symbol, start_date, end_date)
             except Exception as e:
-                self.logger.error(f"CMC API error: {str(e)}")
-                raise ValueError(f"Failed to fetch data from CoinMarketCap API: {str(e)}")
+                error_msg = str(e)
+                if "subscription plan doesn't support this endpoint" in error_msg:
+                    self.logger.warning(f"CMC API subscription limitation: {error_msg}")
+                else:
+                    self.logger.error(f"CMC API error: {error_msg}")
+                raise ValueError(f"Failed to fetch data from CoinMarketCap API: {error_msg}")
 
-            # Validate response
-            if not response or 'data' not in response:
-                raise ValueError(f"Invalid response format from CoinMarketCap API for {symbol}")
+            # Validate response structure
+            if not response:
+                raise ValueError(f"Empty response from CoinMarketCap API for {symbol}")
+            if 'data' not in response:
+                raise ValueError(f"Invalid response format from CoinMarketCap API for {symbol}: missing 'data' field")
+            if 'status' in response and response['status'].get('error_code'):
+                error_msg = response['status'].get('error_message', 'Unknown error')
+                raise ValueError(f"CoinMarketCap API error: {error_msg}")
 
             return response
         except Exception as e:
