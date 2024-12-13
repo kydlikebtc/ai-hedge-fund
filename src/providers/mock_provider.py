@@ -9,21 +9,37 @@ class MockCryptoProvider:
     """Mock provider for cryptocurrency data."""
 
     def __init__(self):
+        """Initialize mock provider with mainstream cryptocurrencies."""
         self.supported_cryptos = {
-            'SOL': 'Solana',
-            'ETH': 'Ethereum',
             'BTC': 'Bitcoin',
+            'ETH': 'Ethereum',
+            'SOL': 'Solana',
+            'BNB': 'Binance Coin',
+            'XRP': 'Ripple',
+            'ADA': 'Cardano',
             'DOGE': 'Dogecoin',
-            'XRP': 'Ripple'
+            'AVAX': 'Avalanche',
+            'DOT': 'Polkadot',
+            'MATIC': 'Polygon'
         }
 
-        # Base prices for supported cryptocurrencies
+        # Base prices for supported cryptocurrencies (approximate current prices)
         self.base_prices = {
-            'SOL': 100.0,
-            'ETH': 2000.0,
-            'BTC': 40000.0,
-            'DOGE': 0.1,
-            'XRP': 0.5
+            'BTC': 43000.0,
+            'ETH': 2250.0,
+            'SOL': 70.0,
+            'BNB': 230.0,
+            'XRP': 0.6,
+            'ADA': 0.45,
+            'DOGE': 0.095,
+            'AVAX': 40.0,
+            'DOT': 7.5,
+            'MATIC': 0.8
+        }
+
+        # Market sentiment factors for price trend simulation
+        self.market_trends = {
+            symbol: random.uniform(-0.2, 0.2) for symbol in self.supported_cryptos
         }
 
     async def get_market_data(self, symbol: str) -> Dict[str, Any]:
@@ -64,26 +80,51 @@ class MockCryptoProvider:
 
         start = datetime.strptime(start_date, "%Y-%m-%d")
         end = datetime.strptime(end_date, "%Y-%m-%d")
+        current = datetime.now()
 
         base_price = self.base_prices[symbol]
         current_price = base_price
         quotes = []
 
+        # Calculate trend factors
+        trend = self.market_trends[symbol]
+        volatility = random.uniform(0.02, 0.08)  # Different volatility for different coins
+
         current_date = start
         while current_date <= end:
-            # Simulate price movement
-            price_change = random.uniform(-0.05, 0.05)
+            # Add trend-based price movement
+            if current_date > current:
+                # Future dates: Add more volatility and trend influence
+                daily_trend = trend * random.uniform(0.8, 1.2)
+                price_change = random.uniform(-volatility, volatility) + daily_trend
+            else:
+                # Historical dates: More stable price movement
+                price_change = random.uniform(-volatility/2, volatility/2) + trend/2
+
             current_price *= (1 + price_change)
+
+            # Ensure price doesn't go below a minimum threshold
+            current_price = max(current_price, base_price * 0.1)
+
+            # Generate daily OHLCV data
+            daily_volatility = volatility * random.uniform(0.5, 1.5)
+            open_price = current_price * (1 + random.uniform(-daily_volatility, daily_volatility))
+            high_price = max(open_price, current_price) * (1 + random.uniform(0, daily_volatility))
+            low_price = min(open_price, current_price) * (1 - random.uniform(0, daily_volatility))
+
+            # Volume increases with price volatility
+            volume_factor = 1 + abs(price_change) * 10
+            base_volume = base_price * 1000000
 
             quotes.append({
                 'timestamp': current_date.strftime("%Y-%m-%d"),
                 'quote': {
                     'USD': {
-                        'open': current_price * (1 + random.uniform(-0.02, 0.02)),
-                        'high': current_price * (1 + random.uniform(0, 0.05)),
-                        'low': current_price * (1 - random.uniform(0, 0.05)),
+                        'open': open_price,
+                        'high': high_price,
+                        'low': low_price,
                         'close': current_price,
-                        'volume': base_price * 1000000 * random.uniform(0.5, 1.5)
+                        'volume': base_volume * volume_factor * random.uniform(0.8, 1.2)
                     }
                 }
             })
