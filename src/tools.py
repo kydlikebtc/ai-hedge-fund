@@ -37,38 +37,24 @@ def get_price_data(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         raise Exception(f"Failed to get price data: {str(e)}")
 
 
-def prices_to_df(prices: Dict[str, Any]) -> pd.DataFrame:
-    """Convert price data to pandas DataFrame."""
+def prices_to_df(price_data: Dict[str, Any]) -> pd.DataFrame:
+    """Convert price data to DataFrame format."""
     try:
-        if not prices or 'data' not in prices:
-            raise ValueError("Invalid price data format")
+        # Handle case where price_data is empty or None
+        if not price_data:
+            return pd.DataFrame()
 
-        # Get the first symbol's data (we only handle one symbol at a time)
-        symbol_data = list(prices['data'].values())[0]
+        # If price_data is already a DataFrame under 'price_data' key, return it
+        if isinstance(price_data, dict) and 'price_data' in price_data:
+            df = price_data['price_data']
+            if isinstance(df, pd.DataFrame):
+                # Ensure required columns exist
+                required_columns = ['open', 'high', 'low', 'close', 'volume']
+                if not all(col in df.columns for col in required_columns):
+                    raise ValueError(f"Missing required columns. Expected: {required_columns}")
+                return df.copy()  # Return a copy to avoid modifying original data
 
-        if 'quotes' not in symbol_data:
-            raise ValueError("Missing quotes in price data")
-
-        quotes = symbol_data['quotes']
-        rows = []
-
-        for quote in quotes:
-            usd_data = quote['quote']['USD']
-            row = {
-                'timestamp': quote['timestamp'],
-                'open': usd_data['open'],
-                'high': usd_data['high'],
-                'low': usd_data['low'],
-                'close': usd_data['close'],
-                'volume': usd_data['volume']
-            }
-            rows.append(row)
-
-        df = pd.DataFrame(rows)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df.set_index('timestamp', inplace=True)
-        df.sort_index(inplace=True)
-        return df
+        raise ValueError("Invalid price data format: expected DataFrame under 'price_data' key")
     except Exception as e:
         raise Exception(f"Error converting prices to DataFrame: {str(e)}")
 
@@ -117,7 +103,7 @@ def calculate_rsi(df: pd.DataFrame, periods: int = 14) -> pd.Series:
         loss = (-close_delta.where(close_delta < 0, 0)).rolling(window=periods).mean()
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs))
-        return rsi.fillna(50)  # Fill NaN with neutral value
+        return rsi.fillna(50)
     except Exception as e:
         raise Exception(f"Error calculating RSI: {str(e)}")
 
