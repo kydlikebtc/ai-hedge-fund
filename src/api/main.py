@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, List, Optional
 import asyncio
 from datetime import datetime, timedelta
+import os
 
 from src.tools import get_supported_cryptocurrencies, get_market_data, get_price_data
 from src.agents import analyze_market
@@ -13,7 +14,7 @@ app = FastAPI()
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Frontend dev server
+    allow_origins=["https://sol-data-app-0uaoqyk7.devinapps.com"],  # Allow frontend domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
