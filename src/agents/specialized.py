@@ -54,7 +54,8 @@ class TechnicalAgent(BaseAgent):
 
     async def analyze(self, price_data, market_data, show_reasoning=False):
         try:
-            df = prices_to_df(price_data)
+            # Price data is already a DataFrame from get_price_data
+            df = price_data
             if df.empty:
                 return "Error: No price data available for technical analysis"
 
@@ -72,8 +73,6 @@ class TechnicalAgent(BaseAgent):
             latest_lower = float(lower_band.iloc[-1])
 
             # Generate analysis based on technical indicators
-            analysis = []
-
             # RSI Analysis
             if latest_rsi > 70:
                 rsi_signal = "Overbought"
@@ -99,6 +98,7 @@ class TechnicalAgent(BaseAgent):
                 f"MACD Signal: {macd_signal} (MACD: {latest_macd:.2f}, Signal: {latest_signal:.2f})\n"
                 f"Bollinger Bands: {bb_signal} (Price: {latest_close:.2f}, Upper: {latest_upper:.2f}, Lower: {latest_lower:.2f})"
             )
+
             return analysis
         except Exception as e:
             return f"Error analyzing technical indicators: {str(e)}"
