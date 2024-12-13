@@ -14,8 +14,9 @@ from langgraph.graph import END, StateGraph
 
 from src.tools import (calculate_bollinger_bands, calculate_macd,
                       calculate_obv, calculate_rsi, get_financial_metrics,
-                      get_insider_trades, get_prices, prices_to_df)
-from src.agents.specialized import SentimentAgent, RiskManagementAgent, PortfolioManagementAgent
+                      get_market_data, get_price_data, get_prices, prices_to_df)
+from src.agents.specialized import (MarketDataAgent, SentimentAgent, TechnicalAgent,
+                                  RiskManagementAgent, PortfolioAgent)
 from src.config import get_model_provider
 
 def merge_dicts(a: Dict[str, Any], b: Dict[str, Any]) -> Dict[str, Any]:
@@ -31,59 +32,53 @@ class AgentState(TypedDict):
 
 ##### Market Data Agent #####
 def market_data_agent(state: AgentState):
-    """Responsible for gathering and preprocessing market data"""
-    messages = state["messages"]
+    """Analyzes current market data and trends."""
+    show_reasoning = state["metadata"]["show_reasoning"]
     data = state["data"]
+    ticker = data["ticker"]
 
-    # Set default dates
-    end_date = data["end_date"] or datetime.now().strftime("%Y-%m-%d")
-    if not data["start_date"]:
-        # Calculate 3 months before end_date
-        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d")
-        start_date = (
-            end_date_obj.replace(month=end_date_obj.month - 3)
-            if end_date_obj.month > 3
-            else end_date_obj.replace(
-                year=end_date_obj.year - 1, month=end_date_obj.month + 9
+    try:
+        # Get current market data
+        market_data = get_market_data(ticker)
+        if not market_data or 'data' not in market_data:
+            raise ValueError(f"Failed to fetch market data for {ticker}")
+
+        crypto_data = list(market_data['data'].values())[0]
+        quote = crypto_data['quote']['USD']
+
+        # Analyze market data
+        message_content = {
+            "price": quote['price'],
+            "change_24h": quote['percent_change_24h'],
+            "volume": quote['volume_24h'],
+            "market_cap": quote['market_cap'],
+            "analysis": "Market shows " + (
+                "bullish momentum" if quote['percent_change_24h'] > 0
+                else "bearish pressure"
             )
+        }
+
+        # Create the market data message
+        message = HumanMessage(
+            content=str(message_content),
+            name="market_data_agent",
         )
-        start_date = start_date.strftime("%Y-%m-%d")
-    else:
-        start_date = data["start_date"]
 
-    # Get the historical price data
-    prices = get_prices(
-        ticker=data["ticker"],
-        start_date=start_date,
-        end_date=end_date,
-    )
+        # Print the reasoning if the flag is set
+        if show_reasoning:
+            show_agent_reasoning(message_content, "Market Data Agent")
 
-    # Get the financial metrics
-    financial_metrics = get_financial_metrics(
-        ticker=data["ticker"],
-        report_period=end_date,
-        period="ttm",
-        limit=1,
-    )
+        return {
+            "messages": [message],
+            "data": data,
+        }
 
-    # Get the insider trades
-    insider_trades = get_insider_trades(
-        ticker=data["ticker"],
-        start_date=start_date,
-        end_date=end_date,
-    )
-
-    return {
-        "messages": messages,
-        "data": {
-            **data,
-            "prices": prices,
-            "start_date": start_date,
-            "end_date": end_date,
-            "financial_metrics": financial_metrics,
-            "insider_trades": insider_trades,
-        },
-    }
+    except Exception as e:
+        error_msg = f"Market data analysis failed: {str(e)}"
+        return {
+            "messages": [HumanMessage(content=error_msg, name="market_data_agent")],
+            "data": data,
+        }
 
 
 ##### Quantitative Agent #####
@@ -423,51 +418,57 @@ def risk_management_agent(state: AgentState):
 
 ##### Portfolio Management Agent #####
 def portfolio_management_agent(state: AgentState):
-    """Makes final trading decisions and generates orders"""
+    """Provides portfolio management recommendations."""
     show_reasoning = state["metadata"]["show_reasoning"]
-    portfolio = state["data"]["portfolio"]
+    data = state["data"]
+    ticker = data["ticker"]
 
-    # Get agent messages
-    quant_message = next(msg for msg in state["messages"] if msg.name == "quant_agent")
-    fundamentals_message = next(
-        msg for msg in state["messages"] if msg.name == "fundamentals_agent"
-    )
-    sentiment_message = next(
-        msg for msg in state["messages"] if msg.name == "sentiment_agent"
-    )
-    risk_message = next(
-        msg for msg in state["messages"] if msg.name == "risk_management_agent"
-    )
+    try:
+        # Get current market data
+        market_data = get_market_data(ticker)
+        if not market_data or 'data' not in market_data:
+            raise ValueError(f"Failed to fetch market data for {ticker}")
 
-    # Create portfolio management agent with default provider
-    agent = PortfolioManagementAgent()
+        crypto_data = list(market_data['data'].values())[0]
+        quote = crypto_data['quote']['USD']
+        trend = quote['percent_change_24h']
 
-    # Parse message contents
-    quant_signal = eval(quant_message.content)
-    fundamental_signal = eval(fundamentals_message.content)
-    sentiment_signal = eval(sentiment_message.content)
-    risk_signal = eval(risk_message.content)
+        # Generate portfolio advice
+        if trend > 5:
+            action = "TAKE PROFIT"
+        elif trend < -5:
+            action = "BUY DIP"
+        else:
+            action = "HOLD"
 
-    # Generate trading decision
-    result = agent.make_decision(
-        quant_signal,
-        fundamental_signal,
-        sentiment_signal,
-        risk_signal,
-        portfolio
-    )
+        message_content = {
+            "action": action,
+            "trend": trend,
+            "direction": "Upward" if trend > 0 else "Downward",
+            "reasoning": f"Based on {trend:.2f}% 24h change"
+        }
 
-    # Create message
-    message = HumanMessage(
-        content=str(result),
-        name="portfolio_management",
-    )
+        # Create the portfolio message
+        message = HumanMessage(
+            content=str(message_content),
+            name="portfolio_agent",
+        )
 
-    # Print the decision if the flag is set
-    if show_reasoning:
-        show_agent_reasoning(result, "Portfolio Management Agent")
+        # Print the reasoning if the flag is set
+        if show_reasoning:
+            show_agent_reasoning(message_content, "Portfolio Agent")
 
-    return {"messages": state["messages"] + [message]}
+        return {
+            "messages": [message],
+            "data": data,
+        }
+
+    except Exception as e:
+        error_msg = f"Portfolio analysis failed: {str(e)}"
+        return {
+            "messages": [HumanMessage(content=error_msg, name="portfolio_agent")],
+            "data": data,
+        }
 
 def show_agent_reasoning(output, agent_name):
     print(f"\n{'=' * 10} {agent_name.center(28)} {'=' * 10}")
