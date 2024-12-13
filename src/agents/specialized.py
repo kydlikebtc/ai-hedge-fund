@@ -55,17 +55,26 @@ class TechnicalAgent(BaseAgent):
     def analyze(self, price_data, market_data, show_reasoning=False):
         try:
             df = prices_to_df(price_data)
+            if df.empty:
+                return "Error: No price data available for technical analysis"
 
             # Calculate technical indicators
             rsi = calculate_rsi(df)
             macd_line, signal_line = calculate_macd(df)
             upper_band, lower_band = calculate_bollinger_bands(df)
 
+            # Get latest values
+            latest_rsi = rsi.iloc[-1]
+            latest_macd = macd_line.iloc[-1] > signal_line.iloc[-1]
+            latest_close = df['close'].iloc[-1]
+            latest_upper = upper_band.iloc[-1]
+            latest_lower = lower_band.iloc[-1]
+
             # Generate analysis
             analysis = (
-                f"RSI (14): {rsi.iloc[-1]:.2f}\n"
-                f"MACD Signal: {'Bullish' if macd_line.iloc[-1] > signal_line.iloc[-1] else 'Bearish'}\n"
-                f"Bollinger Bands: {'Overbought' if df['close'].iloc[-1] > upper_band.iloc[-1] else 'Oversold' if df['close'].iloc[-1] < lower_band.iloc[-1] else 'Neutral'}"
+                f"RSI (14): {latest_rsi:.2f}\n"
+                f"MACD Signal: {'Bullish' if latest_macd else 'Bearish'}\n"
+                f"Bollinger Bands: {'Overbought' if latest_close > latest_upper else 'Oversold' if latest_close < latest_lower else 'Neutral'}"
             )
             return analysis
         except Exception as e:

@@ -33,6 +33,10 @@ class MockCryptoProvider:
 
         base_price = self.base_prices[symbol]
         current_price = base_price * (1 + random.uniform(-0.1, 0.1))
+        volume_24h = base_price * 1000000 * random.uniform(0.5, 1.5)
+        percent_change_24h = random.uniform(-5, 5)
+        percent_change_7d = random.uniform(-10, 10)
+        volume_change_24h = random.uniform(-20, 20)
 
         return {
             'data': {
@@ -42,8 +46,10 @@ class MockCryptoProvider:
                     'quote': {
                         'USD': {
                             'price': current_price,
-                            'volume_24h': base_price * 1000000 * random.uniform(0.5, 1.5),
-                            'percent_change_24h': random.uniform(-5, 5),
+                            'volume_24h': volume_24h,
+                            'volume_change_24h': volume_change_24h,
+                            'percent_change_24h': percent_change_24h,
+                            'percent_change_7d': percent_change_7d,
                             'market_cap': current_price * 1000000 * random.uniform(0.8, 1.2)
                         }
                     }

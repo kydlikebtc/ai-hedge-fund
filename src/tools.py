@@ -37,12 +37,37 @@ def get_price_data(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
         raise Exception(f"Failed to get price data: {str(e)}")
 
 
-def prices_to_df(prices: List[Dict[str, Any]]) -> pd.DataFrame:
+def prices_to_df(prices: Dict[str, Any]) -> pd.DataFrame:
     """Convert price data to pandas DataFrame."""
     try:
-        df = pd.DataFrame(prices)
+        if not prices or 'data' not in prices:
+            raise ValueError("Invalid price data format")
+
+        # Get the first symbol's data (we only handle one symbol at a time)
+        symbol_data = list(prices['data'].values())[0]
+
+        if 'quotes' not in symbol_data:
+            raise ValueError("Missing quotes in price data")
+
+        quotes = symbol_data['quotes']
+        rows = []
+
+        for quote in quotes:
+            usd_data = quote['quote']['USD']
+            row = {
+                'timestamp': quote['timestamp'],
+                'open': usd_data['open'],
+                'high': usd_data['high'],
+                'low': usd_data['low'],
+                'close': usd_data['close'],
+                'volume': usd_data['volume']
+            }
+            rows.append(row)
+
+        df = pd.DataFrame(rows)
         df['timestamp'] = pd.to_datetime(df['timestamp'])
         df.set_index('timestamp', inplace=True)
+        df.sort_index(inplace=True)
         return df
     except Exception as e:
         raise Exception(f"Error converting prices to DataFrame: {str(e)}")
