@@ -87,54 +87,65 @@ def get_supported_cryptocurrencies() -> Dict[str, str]:
         raise Exception(f"Failed to get supported cryptocurrencies: {str(e)}")
 
 
-def calculate_confidence_level(signals: Dict[str, float]) -> float:
-    """Calculate confidence level based on signal differences."""
-    sma_diff_prev = abs(signals["sma_5_prev"] - signals["sma_20_prev"])
-    sma_diff_curr = abs(signals["sma_5_curr"] - signals["sma_20_curr"])
-    diff_change = sma_diff_curr - sma_diff_prev
-    confidence = min(max(diff_change / signals["current_price"], 0), 1)
-    return confidence
+def calculate_confidence_level(df: pd.DataFrame) -> float:
+    """Calculate confidence level based on technical indicators."""
+    try:
+        rsi = calculate_rsi(df)
+        macd_line, signal_line = calculate_macd(df)
+        return float(rsi.iloc[-1])
+    except Exception as e:
+        raise Exception(f"Error calculating confidence level: {str(e)}")
 
 
-def calculate_macd(prices_df: pd.DataFrame) -> Tuple[pd.Series, pd.Series]:
-    """Calculate MACD and signal line."""
-    ema_12 = prices_df["close"].ewm(span=12, adjust=False).mean()
-    ema_26 = prices_df["close"].ewm(span=26, adjust=False).mean()
-    macd_line = ema_12 - ema_26
-    signal_line = macd_line.ewm(span=9, adjust=False).mean()
-    return macd_line, signal_line
+def calculate_macd(df: pd.DataFrame) -> Tuple[pd.Series, pd.Series]:
+    """Calculate MACD indicator."""
+    try:
+        exp1 = df['close'].ewm(span=12, adjust=False).mean()
+        exp2 = df['close'].ewm(span=26, adjust=False).mean()
+        macd_line = exp1 - exp2
+        signal_line = macd_line.ewm(span=9, adjust=False).mean()
+        return macd_line, signal_line
+    except Exception as e:
+        raise Exception(f"Error calculating MACD: {str(e)}")
 
 
-def calculate_rsi(prices_df: pd.DataFrame, period: int = 14) -> pd.Series:
-    """Calculate Relative Strength Index."""
-    delta = prices_df["close"].diff()
-    gain = (delta.where(delta > 0, 0)).fillna(0)
-    loss = (-delta.where(delta < 0, 0)).fillna(0)
-    avg_gain = gain.rolling(window=period).mean()
-    avg_loss = loss.rolling(window=period).mean()
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
+def calculate_rsi(df: pd.DataFrame, periods: int = 14) -> pd.Series:
+    """Calculate RSI indicator."""
+    try:
+        close_delta = df['close'].diff()
+        gain = (close_delta.where(close_delta > 0, 0)).rolling(window=periods).mean()
+        loss = (-close_delta.where(close_delta < 0, 0)).rolling(window=periods).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        return rsi.fillna(50)  # Fill NaN with neutral value
+    except Exception as e:
+        raise Exception(f"Error calculating RSI: {str(e)}")
 
 
-def calculate_bollinger_bands(prices_df: pd.DataFrame, window: int = 20) -> Tuple[pd.Series, pd.Series]:
+def calculate_bollinger_bands(df: pd.DataFrame, window: int = 20) -> Tuple[pd.Series, pd.Series]:
     """Calculate Bollinger Bands."""
-    sma = prices_df["close"].rolling(window).mean()
-    std_dev = prices_df["close"].rolling(window).std()
-    upper_band = sma + (std_dev * 2)
-    lower_band = sma - (std_dev * 2)
-    return upper_band, lower_band
+    try:
+        sma = df['close'].rolling(window=window).mean()
+        std = df['close'].rolling(window=window).std()
+        upper_band = sma + (std * 2)
+        lower_band = sma - (std * 2)
+        return upper_band.fillna(method='bfill'), lower_band.fillna(method='bfill')
+    except Exception as e:
+        raise Exception(f"Error calculating Bollinger Bands: {str(e)}")
 
 
-def calculate_obv(prices_df: pd.DataFrame) -> pd.Series:
-    """Calculate On-Balance Volume."""
-    obv = [0]
-    for i in range(1, len(prices_df)):
-        if prices_df["close"].iloc[i] > prices_df["close"].iloc[i - 1]:
-            obv.append(obv[-1] + prices_df["volume"].iloc[i])
-        elif prices_df["close"].iloc[i] < prices_df["close"].iloc[i - 1]:
-            obv.append(obv[-1] - prices_df["volume"].iloc[i])
-        else:
-            obv.append(obv[-1])
-    prices_df["OBV"] = obv
-    return prices_df["OBV"]
+def calculate_obv(df: pd.DataFrame) -> pd.Series:
+    """Calculate On-Balance Volume (OBV)."""
+    try:
+        obv = pd.Series(index=df.index, dtype=float)
+        obv.iloc[0] = 0
+        for i in range(1, len(df)):
+            if df['close'].iloc[i] > df['close'].iloc[i-1]:
+                obv.iloc[i] = obv.iloc[i-1] + df['volume'].iloc[i]
+            elif df['close'].iloc[i] < df['close'].iloc[i-1]:
+                obv.iloc[i] = obv.iloc[i-1] - df['volume'].iloc[i]
+            else:
+                obv.iloc[i] = obv.iloc[i-1]
+        return obv
+    except Exception as e:
+        raise Exception(f"Error calculating OBV: {str(e)}")
