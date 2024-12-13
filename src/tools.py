@@ -44,17 +44,36 @@ def prices_to_df(price_data: Dict[str, Any]) -> pd.DataFrame:
         if not price_data:
             return pd.DataFrame()
 
-        # If price_data is already a DataFrame under 'price_data' key, return it
+        # Case 1: Data is already a DataFrame under 'price_data' key
         if isinstance(price_data, dict) and 'price_data' in price_data:
             df = price_data['price_data']
             if isinstance(df, pd.DataFrame):
-                # Ensure required columns exist
-                required_columns = ['open', 'high', 'low', 'close', 'volume']
-                if not all(col in df.columns for col in required_columns):
-                    raise ValueError(f"Missing required columns. Expected: {required_columns}")
-                return df.copy()  # Return a copy to avoid modifying original data
+                return df.copy()
 
-        raise ValueError("Invalid price data format: expected DataFrame under 'price_data' key")
+        # Case 2: Raw market data format
+        if isinstance(price_data, dict) and 'data' in price_data:
+            symbol_data = list(price_data['data'].values())[0]
+            if 'quotes' in symbol_data:
+                quotes = symbol_data['quotes']
+                rows = []
+                for quote in quotes:
+                    usd_data = quote['quote']['USD']
+                    row = {
+                        'timestamp': quote['timestamp'],
+                        'open': usd_data['open'],
+                        'high': usd_data['high'],
+                        'low': usd_data['low'],
+                        'close': usd_data['close'],
+                        'volume': usd_data['volume']
+                    }
+                    rows.append(row)
+                df = pd.DataFrame(rows)
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                df.set_index('timestamp', inplace=True)
+                df.sort_index(inplace=True)
+                return df
+
+        raise ValueError("Unsupported price data format")
     except Exception as e:
         raise Exception(f"Error converting prices to DataFrame: {str(e)}")
 
